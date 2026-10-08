@@ -2,9 +2,23 @@ site:
   name: "Benim Haber Sitem"
 
 feeds:
-  # >>> KULLANICI BURAYA RSS ADRES(LER)İNİ YAZACAK <<<
-  - "https://ORNEK-HABER-SITESI.com/rss"
-  # birden fazla olabilir
+  # Tam metin çekilebilen kaynaklar
+  - "https://feeds.bbci.co.uk/news/world/rss.xml"                      # BBC News
+  - "https://www.aljazeera.com/xml/rss/all.xml"                        # Al Jazeera
+  - "https://rss.dw.com/xml/rss-en-world"                              # DW
+  - "https://www.euronews.com/rss?format=mrss&level=theme&name=news"   # Euronews
+  - "https://www.theguardian.com/world/rss"                            # The Guardian
+  - "https://www.politico.eu/feed/"                                    # Politico Europe
+  - "https://feeds.npr.org/1004/rss.xml"                               # NPR
+  - "https://abcnews.go.com/abcnews/internationalheadlines"            # ABC News
+  # Tam metin çekilemiyor (paywall/engel) — sadece RSS özeti; kısa özetler min_chars ile elenir
+  - "https://www.france24.com/en/rss"                                  # France 24
+  - "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"           # New York Times
+  - "https://feeds.skynews.com/feeds/rss/world.xml"                    # Sky News
+  - "https://www.rfi.fr/en/rss"                                        # RFI
+  - "https://feeds.washingtonpost.com/rss/world"                       # Washington Post
+  # Bot koruması nedeniyle 406 veriyor, devre dışı:
+  # - "https://www.cbsnews.com/latest/rss/world"                       # CBS News
 
 ingest:
   max_items: 8             # günde kaç haber
@@ -21,7 +35,6 @@ rewrite:
 
 translate:
   enabled: true
-  # >>> KULLANICI 4 HEDEF DİLİ BURAYA YAZACAK (ISO kodu) <<<
   languages: ["en", "de", "ar", "ru"]
 
 images:
