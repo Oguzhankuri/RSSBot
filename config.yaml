@@ -1,0 +1,49 @@
+site:
+  name: "Benim Haber Sitem"
+
+feeds:
+  # >>> KULLANICI BURAYA RSS ADRES(LER)İNİ YAZACAK <<<
+  - "https://ORNEK-HABER-SITESI.com/rss"
+  # birden fazla olabilir
+
+ingest:
+  max_items: 8             # günde kaç haber
+  fetch_full_text: true    # makale sayfasından tam metni çek (trafilatura)
+  dedupe: true             # state/seen.json ile tekrarı engelle
+  min_chars: 200           # bundan kısa haberleri ele
+
+rewrite:
+  provider: "deepseek"
+  model: "deepseek-chat"
+  base_url: "https://api.deepseek.com"
+  target_words: 110        # her haber senaryosu ~kaç kelime (8×110 ≈ 8 dk)
+  tone: "net, tarafsız, akıcı, YouTube haber bülteni anlatımı"
+
+translate:
+  enabled: true
+  # >>> KULLANICI 4 HEDEF DİLİ BURAYA YAZACAK (ISO kodu) <<<
+  languages: ["en", "de", "ar", "ru"]
+
+images:
+  provider: "flux_local"   # flux_local (Colab GPU) | fal (API)
+  model_id: "black-forest-labs/FLUX.1-schnell"
+  count_per_item: 3
+  width: 1280
+  height: 720              # 16:9
+  steps: 4                 # schnell için 4 adım yeterli
+  style: "modern, temiz, gerçekçi haber illüstrasyonu, sinematik ışık"
+  fal_model: "fal-ai/flux/schnell"   # provider=fal ise
+
+voice:
+  enabled: true
+  engine: "chatterbox"
+  device: "cuda"           # GPU; yoksa "cpu" (çok yavaş)
+  ref_audio: "refs/ref_voice.wav"   # kullanıcının referans sesi
+  languages: ["en", "de", "ar", "ru"]   # translate.languages ile aynı olmalı
+  max_chars_per_chunk: 300            # uzun metni cümlelere böl
+  exaggeration: 0.5
+  cfg_weight: 0.5
+
+output:
+  base_dir: "output"
+  # Colab'da Drive'a yazmak için: "/content/drive/MyDrive/gunluk-bulten/output"

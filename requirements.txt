@@ -1,0 +1,11 @@
+feedparser
+trafilatura
+requests
+openai>=1.40
+pyyaml
+python-dotenv
+pillow
+soundfile
+numpy
+tzdata
+fal-client

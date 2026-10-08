@@ -1,0 +1,3 @@
+# FAZ B — Chatterbox Multilingual (Colab/GPU). run_text.py bittikten SONRA kurun.
+# Kendi torch/diffusers sürümlerini sabitler; Flux kurulumunu bozabilir, sıra önemli.
+chatterbox-tts

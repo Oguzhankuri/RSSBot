@@ -1,0 +1,10 @@
+# FAZ A — FLUX.1-schnell görsel üretimi (Colab/GPU)
+# NOT: chatterbox-tts, diffusers==0.29.0 sabitliyor; FluxPipeline ise >=0.30 ister.
+# Bu yüzden ses bağımlılıkları ayrı dosyada (requirements-voice.txt) ve FAZ A bittikten sonra kurulur.
+torch
+torchaudio
+diffusers>=0.30
+transformers
+accelerate
+sentencepiece
+protobuf
