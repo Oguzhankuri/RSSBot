@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+docker/.env
+secrets/
+output/
+state/
+refs/
+**/__pycache__
+.pytest_cache
+.coverage
+htmlcov

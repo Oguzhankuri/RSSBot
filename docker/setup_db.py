@@ -85,14 +85,18 @@ def setup_server(domain: str) -> None:
         raise SystemExit(f"Geçersiz alan adı: {domain!r} (ör. db.ornek.com)")
     values = ensure_docker_env()
     set_env_values(DOCKER_ENV, {"SITE_ADDRESS": domain})
+    key = service_key_for(values["JWT_SECRET"])
+    # Sunucudaki panel/işçi aynı anahtarı kullanır (adres compose'ta iç ağ olarak verilir).
+    set_env_values(PROJECT_ENV, {"SUPABASE_SERVICE_KEY": key})
     print("✅ docker/.env hazır (şifreler üretildi/korundu), SITE_ADDRESS =", domain)
+    print("✅ .env → SUPABASE_SERVICE_KEY (sunucudaki panel için)")
     print()
     print("Aşağıdaki iki değeri proje sahibine GÜVENLİ yoldan ilet (şifre yöneticisi / tek seferlik not).")
     print("Repoya, issue'ya, sohbet grubuna YAPIŞTIRMA. Ekranı temizle: clear")
     print(f"SUPABASE_URL=https://{domain}")
-    print(f"SUPABASE_SERVICE_KEY={service_key_for(values['JWT_SECRET'])}")
+    print(f"SUPABASE_SERVICE_KEY={key}")
     print()
-    print("Sıradaki: docker compose -f docker/docker-compose.yml -f docker/docker-compose.server.yml up -d")
+    print("Sıradaki: docs/SELF_HOSTING.md → 3.5 (panel şifresi) ve 3.6 (başlat)")
 
 
 def main() -> None:

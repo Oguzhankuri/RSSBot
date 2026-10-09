@@ -9,7 +9,12 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import os  # noqa: E402
+
 import streamlit as st  # noqa: E402
+import streamlit.components.v1 as components  # noqa: E402
+
+from bulten import auth  # noqa: E402
 
 from bulten.config import ConfigError, load_config  # noqa: E402
 from bulten.db import RepoError, create_repo  # noqa: E402
@@ -23,15 +28,69 @@ def _load() -> tuple[dict, object]:
     return cfg, create_repo(cfg)
 
 
+def _set_cookie(value: str, max_age: int) -> None:
+    # Bileşen iframe'i aynı kökende çalışır; çerez panelin alan adına yazılır.
+    components.html(
+        f"<script>document.cookie='{auth.COOKIE_NAME}={value}; Max-Age={max_age}; Path=/; SameSite=Strict"
+        + ("; Secure" if os.getenv("BULTEN_PUBLIC") == "1" else "")
+        + "';</script>",
+        height=0,
+    )
+
+
+def require_login() -> None:
+    """PANEL_PASSWORD_HASH tanımlıysa şifre sorar. İnternete açık kurulumda (BULTEN_PUBLIC=1) şifre zorunlu."""
+    stored = os.getenv("PANEL_PASSWORD_HASH", "").strip()
+    session_secret = os.getenv("PANEL_SESSION_SECRET", "").strip()
+    if not stored:
+        if os.getenv("BULTEN_PUBLIC") == "1":
+            st.error("Panel internete açık ama şifre tanımlı değil. Sunucuda: python3 -m bulten.auth set-password")
+            st.stop()
+        return  # yalnızca bu bilgisayardan erişilen yerel panel
+    if st.session_state.get("authed"):
+        return
+    if auth.verify_token(st.context.cookies.get(auth.COOKIE_NAME), session_secret, stored):
+        st.session_state["authed"] = True
+        return
+
+    st.title("🔒 Bülten Stüdyosu")
+    wait = auth.THROTTLE.wait_seconds()
+    with st.form("login"):
+        password = st.text_input("Şifre", type="password")
+        submitted = st.form_submit_button("Giriş", type="primary", disabled=wait > 0)
+    if wait > 0:
+        st.warning(f"Çok fazla hatalı deneme. {wait} sn sonra tekrar dene.")
+    elif submitted:
+        if auth.verify_password(password, stored):
+            auth.THROTTLE.record_success()
+            st.session_state["authed"] = True
+            _set_cookie(auth.issue_token(session_secret, stored), auth.SESSION_DAYS * 86400)
+            st.rerun()
+        auth.THROTTLE.record_failure()
+        st.error("Şifre yanlış.")
+    st.stop()
+
+
+def logout_button() -> None:
+    if os.getenv("PANEL_PASSWORD_HASH") and st.sidebar.button("🚪 Çıkış yap"):
+        st.session_state["authed"] = False
+        _set_cookie("", 0)
+        st.rerun()
+
+
 def boot(title: str, icon: str) -> tuple[dict, object]:
-    """Sayfa başlığını kurar; yapılandırma hatasını kullanıcı dostu gösterip durur."""
+    """Sayfa başlığını kurar, girişi denetler; yapılandırma hatasını kullanıcı dostu gösterip durur."""
     st.set_page_config(page_title=f"{title} · Bülten Stüdyosu", page_icon=icon, layout="wide")
     try:
-        return _load()
+        loaded = _load()  # .env'i de yükler (şifre özeti dahil)
     except (ConfigError, RepoError) as exc:
+        require_login()
         st.error(f"Ayarlar yüklenemedi: {exc}")
         st.info("`.env` ve `config.yaml` dosyalarını kontrol edip sayfayı yenile. Kurulum adımları README'de.")
         st.stop()
+    require_login()
+    logout_button()
+    return loaded
 
 
 def reload_config() -> None:

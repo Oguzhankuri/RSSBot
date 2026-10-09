@@ -1,0 +1,26 @@
+# SUNUCU: tek alan adı (ör. rssbot-xxx.duckdns.org)
+#   /rest/v1/*  → veritabanı API'si (Colab ve PC; service key ile)
+#   geri kalan → panel (şifreli giriş panelin kendisinde)
+{$SITE_ADDRESS} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000
+	}
+	handle {
+		reverse_proxy panel:8501
+	}
+}
+
+# Yalnızca Docker iç ağı (dışarı açılmaz): panel ve işçi veritabanına buradan bağlanır.
+:8080 {
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000
+	}
+}

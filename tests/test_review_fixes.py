@@ -201,7 +201,9 @@ def test_setup_db_server_mode(tmp_path, monkeypatch, capsys):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod, "DOCKER_ENV", tmp_path / "docker.env")
+    monkeypatch.setattr(mod, "PROJECT_ENV", tmp_path / "proje.env")
     mod.setup_server("db.ornek.com")
+    assert mod.read_env(tmp_path / "proje.env")["SUPABASE_SERVICE_KEY"].startswith("ey")
     env = mod.read_env(tmp_path / "docker.env")
     assert env["SITE_ADDRESS"] == "db.ornek.com" and len(env["JWT_SECRET"]) > 40
     out = capsys.readouterr().out

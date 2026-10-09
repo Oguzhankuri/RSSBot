@@ -1,6 +1,29 @@
 # SUNUCU katmanı — temel dosyanın üstüne eklenir:
-#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.server.yml up -d
-# Farklar: 80/443 dışarı açılır (HTTPS), alan adı docker/.env → SITE_ADDRESS, sertifikalar kalıcı volume'da.
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.server.yml up -d --build
+# Ekler: HTTPS (80/443), panel (şifreli), Telegram işçisi (7/24), Drive klasörü bağlantısı.
+x-app: &app
+  build:
+    context: ..
+    dockerfile: docker/panel.Dockerfile
+  image: rssbot-panel:latest
+  restart: unless-stopped
+  user: "${APP_UID:-1000}:${APP_GID:-1000}"
+  depends_on: [gateway]
+  working_dir: /app
+  environment:
+    BULTEN_PUBLIC: "1"                       # şifresiz açılmayı engeller
+    BULTEN_DB_PROVIDER: supabase
+    SUPABASE_URL: http://gateway:8080        # iç ağ; .env'deki değeri ezer
+    BULTEN_OUTPUT_DIR: /data/output
+    HOME: /tmp
+  volumes:
+    - ..:/app                                # kod + .env + config.yaml (git pull ile güncellenir)
+    - type: bind
+      source: ${OUTPUT_HOST_DIR:?docker/.env içine OUTPUT_HOST_DIR yaz (Drive bağlantı klasörü)}
+      target: /data/output
+      bind:
+        propagation: rslave                  # rclone yeniden bağlansa da görünür kalır
+
 services:
   gateway:
     ports: !override
@@ -8,18 +31,25 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:?docker/.env içine SITE_ADDRESS=db.alanadin.com yaz}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      SITE_ADDRESS: ${SITE_ADDRESS:?docker/.env içine SITE_ADDRESS=rssbot-xxx.duckdns.org yaz}
+    volumes: !override
+      - ./Caddyfile.server:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 
   db:
-    # Sunucuda Postgres'e ayrılan bellek sınırı (küçük VPS'lerde OOM'u önler)
     deploy:
       resources:
         limits:
           memory: 512M
+
+  panel:
+    <<: *app
+
+  worker:
+    # Telegram → Fikir Kutusu, 2 dakikada bir (panel kapalıyken de)
+    <<: *app
+    command: ["sh", "-c", "while true; do python -m bulten.telegram_sync; sleep 120; done"]
 
 volumes:
   caddy_data:
