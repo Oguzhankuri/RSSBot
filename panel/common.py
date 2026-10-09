@@ -40,6 +40,10 @@ def _set_cookie(value: str, max_age: int) -> None:
 
 def require_login() -> None:
     """PANEL_PASSWORD_HASH tanımlıysa şifre sorar. İnternete açık kurulumda (BULTEN_PUBLIC=1) şifre zorunlu."""
+    # Çerez işlemi st.rerun()'dan SONRAKİ çizimde yapılır; aynı çizimde yapılırsa iframe hiç yüklenmez.
+    pending = st.session_state.pop("cookie_op", None)
+    if pending is not None:
+        _set_cookie(*pending)
     stored = os.getenv("PANEL_PASSWORD_HASH", "").strip()
     session_secret = os.getenv("PANEL_SESSION_SECRET", "").strip()
     if not stored:
@@ -49,7 +53,10 @@ def require_login() -> None:
         return  # yalnızca bu bilgisayardan erişilen yerel panel
     if st.session_state.get("authed"):
         return
-    if auth.verify_token(st.context.cookies.get(auth.COOKIE_NAME), session_secret, stored):
+    # st.context.cookies sayfa açılışındaki çerezlerdir; çıkış yapılan oturumda bunlara güvenilmez.
+    if not st.session_state.get("logged_out") and auth.verify_token(
+        st.context.cookies.get(auth.COOKIE_NAME), session_secret, stored
+    ):
         st.session_state["authed"] = True
         return
 
@@ -64,7 +71,8 @@ def require_login() -> None:
         if auth.verify_password(password, stored):
             auth.THROTTLE.record_success()
             st.session_state["authed"] = True
-            _set_cookie(auth.issue_token(session_secret, stored), auth.SESSION_DAYS * 86400)
+            st.session_state["logged_out"] = False
+            st.session_state["cookie_op"] = (auth.issue_token(session_secret, stored), auth.SESSION_DAYS * 86400)
             st.rerun()
         auth.THROTTLE.record_failure()
         st.error("Şifre yanlış.")
@@ -74,7 +82,8 @@ def require_login() -> None:
 def logout_button() -> None:
     if os.getenv("PANEL_PASSWORD_HASH") and st.sidebar.button("🚪 Çıkış yap"):
         st.session_state["authed"] = False
-        _set_cookie("", 0)
+        st.session_state["logged_out"] = True
+        st.session_state["cookie_op"] = ("", 0)
         st.rerun()
 
 

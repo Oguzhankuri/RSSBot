@@ -101,7 +101,7 @@ docker compose -f docker/docker-compose.yml up -d      # veritabanını başlat�
 - **Sunucuya taşıma:** `docker/` klasörünü + `docker/.env`'i kopyala, `Caddyfile`'da `:80` yerine alan adını yaz
   (Caddy HTTPS'i kendisi alır), `.env`'de `SUPABASE_URL=https://alan-adin` yap. Tünele ve PC'nin açık kalmasına gerek kalmaz;
   GitHub Actions Telegram senkronu da tekrar çalışır.
-- **Sunucuya taşıma rehberi:** [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)
+- **Sunucuya taşıma (panel + veritabanı, şifreli, ücretsiz alan adı):** [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)
 - Yedek: `docker compose -f docker/docker-compose.yml exec db pg_dump -U postgres postgres > yedek.sql`
 
 ### 3) Google Drive

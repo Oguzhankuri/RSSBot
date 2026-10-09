@@ -57,7 +57,7 @@ def test_set_password_cli(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def gated(panel_env, monkeypatch):
+def gated(panel_env, monkeypatch):  # noqa: F811 — pytest fixture
     monkeypatch.setenv("PANEL_PASSWORD_HASH", auth.hash_password(PASSWORD))
     monkeypatch.setenv("PANEL_SESSION_SECRET", "sir")
     auth.THROTTLE.record_success()
@@ -77,7 +77,7 @@ def test_panel_requires_password(gated):
     assert not at.exception and at.date_input  # içeri girildi
 
 
-def test_public_without_password_is_blocked(panel_env, monkeypatch):
+def test_public_without_password_is_blocked(panel_env, monkeypatch):  # noqa: F811
     AppTest, *_ = panel_env
     monkeypatch.delenv("PANEL_PASSWORD_HASH", raising=False)
     monkeypatch.setenv("BULTEN_PUBLIC", "1")

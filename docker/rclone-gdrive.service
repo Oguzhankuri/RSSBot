@@ -1,0 +1,26 @@
+# Google Drive'ı sunucuya klasör olarak bağlar (panel çıktıları Colab ve grafikçilerle ortak olsun diye).
+# Kurulum: docs/SELF_HOSTING.md → "Google Drive bağlantısı"
+#   sudo cp docker/rclone-gdrive.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now rclone-gdrive
+[Unit]
+Description=rclone: Google Drive -> /mnt/gdrive
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+User=rssbot
+Group=rssbot
+ExecStart=/usr/bin/rclone mount gdrive: /mnt/gdrive \
+  --config /home/rssbot/.config/rclone/rclone.conf \
+  --vfs-cache-mode writes \
+  --dir-cache-time 30s \
+  --poll-interval 15s \
+  --allow-other \
+  --umask 002
+ExecStop=/bin/fusermount3 -uz /mnt/gdrive
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
