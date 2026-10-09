@@ -113,6 +113,12 @@ def set_status(repo: Repo, idea_id: str, status: str) -> dict:
     return repo.update("ideas", idea_id, {"status": status})
 
 
+def set_format(repo: Repo, idea_id: str, fmt: str) -> dict:
+    if fmt not in VALID_FORMATS:
+        raise IdeaError(f"Format şunlardan biri olmalı: {VALID_FORMATS}")
+    return repo.update("ideas", idea_id, {"suggested_format": fmt})
+
+
 def edit_text(repo: Repo, idea_id: str, text: str) -> dict:
     return repo.update("ideas", idea_id, {"text": _clean_text(text)})
 

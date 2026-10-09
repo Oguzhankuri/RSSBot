@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from bulten import ideas, telegram_sync
+from bulten import ideas, telegram_sync, telegram_ui
 from bulten.db import SqliteRepo, kv_get
 from tests.fakes import FakeChat
 
@@ -84,7 +84,9 @@ def test_sync_saves_ideas_and_commands(repo):
     assert kv_get(repo, telegram_sync.OFFSET_KEY) == 6
     texts = [s["text"] for s in http.sent]
     assert texts[0].startswith("✅ Kaydedildi") and "acil" in texts[1] and texts[2] == "Bu bot özeldir."
-    assert "Uzayda" in texts[3]
+    list_buttons = http.sent[3]["reply_markup"]["inline_keyboard"]
+    assert texts[3].startswith("📋") and any("Uzayda" in row[0]["text"] for row in list_buttons)
+    assert "inline_keyboard" in http.sent[0]["reply_markup"]  # kayıt kartında düğmeler var
 
     # aynı mesaj tekrar gelirse (iki senkron yarıştı) çift kayıt olmaz
     http2 = FakeHttp([msg(1, "Uzayda yaşam var mı?")])
@@ -97,14 +99,17 @@ def test_sync_saves_ideas_and_commands(repo):
 def test_commands(repo):
     idea = ideas.add_idea(repo, "fikir bir")
     code = idea["id"][:6]
-    handle = lambda text: telegram_sync.handle_message(repo, msg(1, text)["message"], OWNER)
+    handle = lambda text: telegram_sync.handle_message(repo, msg(1, text)["message"], OWNER).text
     assert "Öncelik" in handle(f"/oncelik {code} 4") and repo.get("ideas", idea["id"])["priority"] == 4
     assert "Kullanım" in handle(f"/oncelik {code} 9")
     assert "Arşivlendi" in handle(f"/sil {code}") and repo.get("ideas", idea["id"])["status"] == "arsiv"
     assert "bulamadım" in handle("/sil zzzzzz")
     assert handle("/start") == telegram_sync.HELP_TEXT == handle("/bilinmeyen")
     assert "Açık fikir yok" in handle("/liste")
-    assert "yazılı" in telegram_sync.handle_message(repo, {"from": {"id": OWNER}, "chat": {"id": 1}}, OWNER)
+    assert "yazılı" in telegram_sync.handle_message(repo, {"from": {"id": OWNER}, "chat": {"id": 1}}, OWNER).text
+    assert handle(telegram_ui.MENU_LIST) == handle("/liste") and handle(telegram_ui.MENU_HELP) == telegram_sync.HELP_TEXT
+    assert repo.get("ideas", idea["id"])["status"] == "arsiv"  # menü düğmeleri fikir olarak kaydedilmez
+    assert len(repo.select("ideas")) == 1
     assert "⚠️" in handle("!")
 
 
@@ -133,9 +138,9 @@ def test_team_members_accepted_and_author_recorded(repo):
     team = frozenset({OWNER, 5555})
     message = {"message_id": 7, "chat": {"id": 5555}, "from": {"id": 5555, "first_name": "Ayşe", "last_name": "Y"},
                "text": "ekip fikri"}
-    assert "Kaydedildi" in telegram_sync.handle_message(repo, message, team)
+    assert "Kaydedildi" in telegram_sync.handle_message(repo, message, team).text
     stranger = {**message, "message_id": 8, "from": {"id": 9999}}
-    assert telegram_sync.handle_message(repo, stranger, team) == "Bu bot özeldir."
+    assert telegram_sync.handle_message(repo, stranger, team).text == "Bu bot özeldir."
     rows = repo.select("ideas")
     assert len(rows) == 1 and rows[0]["source"] == "telegram:Ayşe Y"
 
@@ -164,3 +169,80 @@ def test_command_menu_failure_does_not_block_sync(repo):
 
     assert telegram_sync.sync(repo, Api(), OWNER) == 0
     assert kv_get(repo, telegram_sync.COMMANDS_KEY) is None
+
+
+class RecordingApi:
+    """Telegram API çağrılarını kaydeder; getUpdates için verilen güncellemeleri döndürür."""
+
+    def __init__(self, updates=()):
+        self.updates, self.calls = list(updates), []
+
+    def call(self, method, **params):
+        self.calls.append((method, params))
+        return self.updates if method == "getUpdates" else {}
+
+    def calls_of(self, method):
+        return [p for m, p in self.calls if m == method]
+
+
+def press(update_id, data, sender=OWNER, message_id=50):
+    return {"update_id": update_id, "callback_query": {
+        "id": f"cb{update_id}", "from": {"id": sender}, "data": data,
+        "message": {"message_id": message_id, "chat": {"id": -5}},
+    }}
+
+
+def test_buttons_change_priority_format_archive_and_restore(repo):
+    idea = ideas.add_idea(repo, "Kara delikler buharlaşır mı")
+    iid = idea["id"]
+    api = RecordingApi([
+        press(1, f"p:{iid}:5"),
+        press(2, f"f:{iid}:dikey"),
+        press(3, f"a:{iid}"),
+        press(4, f"r:{iid}"),
+    ])
+    tapi = _wrap(api)
+    assert telegram_sync.sync(repo, tapi, OWNER) == 4
+    row = repo.get("ideas", iid)
+    assert row["priority"] == 5 and row["suggested_format"] == "dikey" and row["status"] == "yeni"
+    toasts = [p["text"] for p in api.calls_of("answerCallbackQuery")]
+    assert toasts[0].startswith("⭐") and "Dikey" in toasts[1] and "Arşiv" in toasts[2] and "Geri" in toasts[3]
+    edits = api.calls_of("editMessageText")
+    assert len(edits) == 4 and all(e["message_id"] == 50 for e in edits)
+    archived_buttons = edits[2]["reply_markup"]["inline_keyboard"][0]
+    assert archived_buttons[0]["callback_data"] == f"r:{iid}"
+    assert all(len(b["callback_data"].encode()) <= 64 for row in edits[0]["reply_markup"]["inline_keyboard"] for b in row)
+
+
+def test_list_and_view_buttons_send_new_messages(repo):
+    idea = ideas.add_idea(repo, "Mars kolonisi")
+    api = RecordingApi([press(1, "l"), press(2, f"v:{idea['id']}")])
+    telegram_sync.sync(repo, _wrap(api), OWNER)
+    sent = api.calls_of("sendMessage")
+    assert sent[0]["text"].startswith("📋") and sent[1]["text"].startswith("💡 Mars kolonisi")
+    assert api.calls_of("editMessageText") == []
+
+
+def test_bad_and_unauthorized_button_presses_change_nothing(repo):
+    idea = ideas.add_idea(repo, "dokunulmaz")
+    iid = idea["id"]
+    api = RecordingApi([
+        press(1, f"p:{iid}:5", sender=999),       # yabancı
+        press(2, f"p:{iid}:9"),                   # geçersiz öncelik
+        press(3, f"f:{iid}:kare"),                # geçersiz format
+        press(4, "p:yok-boyle-bir-id:3"),         # olmayan fikir
+        press(5, "zzz:bozuk"),                    # bozuk veri
+    ])
+    assert telegram_sync.sync(repo, _wrap(api), OWNER) == 5
+    assert repo.get("ideas", iid) == idea
+    toasts = [p["text"] for p in api.calls_of("answerCallbackQuery")]
+    assert toasts[0] == "Bu bot özeldir." and toasts[1] == toasts[2] == "Geçersiz seçim."
+    assert "bulunamadı" in toasts[3] and "geçerli değil" in toasts[4]
+    assert api.calls_of("editMessageText") == []
+
+
+def _wrap(recording):
+    """Gerçek TelegramApi sınıfını (reply/edit/answer) kayıt yapan çağrıyla kullanır."""
+    api = telegram_sync.TelegramApi("tok")
+    api.call = recording.call
+    return api

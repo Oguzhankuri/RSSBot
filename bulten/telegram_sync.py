@@ -16,9 +16,10 @@ from typing import Any, Collection
 
 import requests
 
-from bulten import ideas
+from bulten import ideas, telegram_ui
 from bulten.config import ConfigError, load_config
 from bulten.db import Repo, RepoError, create_repo, kv_get, kv_set
+from bulten.telegram_ui import Reply
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +38,10 @@ URGENT_PREFIX = "!"
 MAX_AUTHOR_LEN = 40
 HELP_TEXT = (
     "💡 Fikir kutusu\n"
-    "• Ne yazarsan fikir olarak kaydedilir.\n"
+    "• Ne yazarsan fikir olarak kaydedilir; altındaki düğmelerle öncelik, format ve arşiv ayarlanır.\n"
     "• Başına ! koyarsan acil (öncelik 5) olur.\n"
-    "• /liste — açık fikirler\n"
-    "• /oncelik <kod> <1-5> — önceliği değiştir\n"
-    "• /sil <kod> — fikri arşivle (silinmez, kaybolmaz)"
+    "• 📋 Fikirlerim (ya da /liste) — açık fikirler; dokununca düzenlenir.\n"
+    "• /oncelik <kod> <1-5>, /sil <kod> — düğmesiz kısayollar (sil = arşivle, kaybolmaz)"
 )
 
 
@@ -68,11 +68,24 @@ class TelegramApi:
             raise TelegramError(f"Telegram {method} hatası: {data.get('description', 'bilinmiyor')}")
         return data["result"]
 
-    def reply(self, chat_id: int, text: str) -> None:
+    def _safe(self, method: str, **params: Any) -> None:
+        """Yanıt/arayüz çağrıları: başarısız olsa da fikir senkronu durmaz."""
         try:
-            self.call("sendMessage", chat_id=chat_id, text=text)
+            self.call(method, **params)
         except TelegramError as exc:
-            logger.warning("Yanıt gönderilemedi: %s", exc)
+            logger.warning("%s başarısız: %s", method, exc)
+
+    def reply(self, chat_id: int, reply: Reply | str) -> None:
+        reply = Reply(reply) if isinstance(reply, str) else reply
+        extra = {"reply_markup": reply.markup} if reply.markup else {}
+        self._safe("sendMessage", chat_id=chat_id, text=reply.text, **extra)
+
+    def edit(self, chat_id: int, message_id: int, reply: Reply) -> None:
+        extra = {"reply_markup": reply.markup} if reply.markup else {}
+        self._safe("editMessageText", chat_id=chat_id, message_id=message_id, text=reply.text, **extra)
+
+    def answer(self, callback_id: str, text: str) -> None:
+        self._safe("answerCallbackQuery", callback_query_id=callback_id, text=text[:190])
 
 
 def ensure_commands(repo: Repo, api: TelegramApi) -> None:
@@ -88,33 +101,23 @@ def ensure_commands(repo: Repo, api: TelegramApi) -> None:
     kv_set(repo, COMMANDS_KEY, signature)
 
 
-def _format_list(repo: Repo) -> str:
-    rows = ideas.list_open(repo, limit=15)
-    if not rows:
-        return "Açık fikir yok. Bir şey yaz, kaydedeyim."
-    return "\n".join(f"[{ideas.short_id(r)}] ⭐{r.get('priority', 3)} {r['text'][:120]}" for r in rows)
-
-
-def _command(repo: Repo, text: str) -> str:
+def _command(repo: Repo, text: str) -> Reply:
     parts = text.split()
     cmd = parts[0].split("@")[0].lower()
-    if cmd in ("/start", "/yardim", "/help"):
-        return HELP_TEXT
     if cmd == "/liste":
-        return _format_list(repo)
+        return telegram_ui.idea_list(repo)
     if cmd in ("/sil", "/oncelik") and len(parts) >= 2:
         idea = ideas.find_by_prefix(repo, parts[1])
         if idea is None:
-            return "Bu kodla tek bir fikir bulamadım. /liste ile kodlara bak."
+            return Reply("Bu kodla tek bir fikir bulamadım. /liste ile kodlara bak.")
         if cmd == "/sil":
-            ideas.set_status(repo, idea["id"], "arsiv")
-            return f"🗄️ Arşivlendi: {idea['text'][:80]}"
+            return telegram_ui.card(ideas.set_status(repo, idea["id"], "arsiv"), "🗄️ Arşivlendi")
         try:
-            ideas.set_priority(repo, idea["id"], int(parts[2]) if len(parts) > 2 else 0)
+            updated = ideas.set_priority(repo, idea["id"], int(parts[2]) if len(parts) > 2 else 0)
         except (ValueError, ideas.IdeaError):
-            return "Kullanım: /oncelik <kod> <1-5>"
-        return f"⭐ Öncelik güncellendi: {idea['text'][:80]}"
-    return HELP_TEXT
+            return Reply("Kullanım: /oncelik <kod> <1-5>")
+        return telegram_ui.card(updated, "⭐ Öncelik güncellendi")
+    return Reply(HELP_TEXT, telegram_ui.MENU_KEYBOARD)  # /start, /yardim ve bilinmeyen komutlar
 
 
 def message_idea_id(msg: dict) -> str:
@@ -140,18 +143,21 @@ def _author(msg: dict) -> str:
     return re.sub(r"\s+", " ", name).strip()[:MAX_AUTHOR_LEN]
 
 
+def _is_allowed(sender: Any, allowed: Collection[int] | int) -> bool:
+    return sender in ({allowed} if isinstance(allowed, int) else allowed)
+
+
 def handle_message(
     repo: Repo, msg: dict, allowed: Collection[int] | int, client: Any | None = None
-) -> str | None:
+) -> Reply | None:
     """Mesajı işler, gönderilecek yanıtı döndürür (None = yanıt verme)."""
-    allowed_ids = {allowed} if isinstance(allowed, int) else allowed
-    sender = (msg.get("from") or {}).get("id")
-    if sender not in allowed_ids:
+    if not _is_allowed((msg.get("from") or {}).get("id"), allowed):
         logger.warning("Yetkisiz bir Telegram kullanıcısının mesajı yok sayıldı.")  # kimlik public loga yazılmaz
-        return "Bu bot özeldir."
+        return Reply("Bu bot özeldir.")
     text = (msg.get("text") or msg.get("caption") or "").strip()
     if not text:
-        return "Şimdilik sadece yazılı fikirleri kaydedebiliyorum."
+        return Reply("Şimdilik sadece yazılı fikirleri kaydedebiliyorum.")
+    text = telegram_ui.MENU_BUTTONS.get(text, text)
     if text.startswith("/"):
         return _command(repo, text)
     priority = 5 if text.startswith(URGENT_PREFIX) else 3
@@ -165,22 +171,41 @@ def handle_message(
             return None  # zaten kaydedilmiş (başka senkron yakaladı)
         raise  # ağ/sunucu hatası: offset ilerlemez, mesaj bir sonraki senkronda tekrar denenir
     except ideas.IdeaError as exc:
-        return f"⚠️ {exc}"
-    label = f" · {idea['category']}" if idea.get("category") else ""
-    return f"✅ Kaydedildi [{ideas.short_id(idea)}]{label}" + (" · 🔥 acil" if priority == 5 else "")
+        return Reply(f"⚠️ {exc}")
+    return telegram_ui.card(idea, "✅ Kaydedildi" + (" · 🔥 acil" if priority == 5 else ""))
+
+
+def handle_callback(repo: Repo, api: TelegramApi, query: dict, allowed: Collection[int] | int) -> None:
+    """Düğmeye basılması. Yetki her basışta yeniden kontrol edilir."""
+    if not _is_allowed((query.get("from") or {}).get("id"), allowed):
+        logger.warning("Yetkisiz bir Telegram kullanıcısının düğme basışı yok sayıldı.")
+        api.answer(query["id"], "Bu bot özeldir.")
+        return
+    result = telegram_ui.handle_callback(repo, str(query.get("data") or ""))
+    api.answer(query["id"], result.toast)
+    message = query.get("message") or {}
+    chat_id = (message.get("chat") or {}).get("id")
+    if chat_id is None:
+        return
+    if result.edit:
+        api.edit(chat_id, message["message_id"], result.edit)
+    if result.send:
+        api.reply(chat_id, result.send)
 
 
 def sync(repo: Repo, api: TelegramApi, allowed: Collection[int] | int, client: Any | None = None) -> int:
     """Bekleyen tüm mesajları işler; işlenen güncelleme sayısını döndürür."""
     ensure_commands(repo, api)
     offset = int(kv_get(repo, OFFSET_KEY, 0) or 0)
-    updates = api.call("getUpdates", offset=offset, timeout=0, allowed_updates=["message"])
+    updates = api.call("getUpdates", offset=offset, timeout=0, allowed_updates=["message", "callback_query"])
     for update in updates:
         msg = update.get("message")
         if msg:
             reply = handle_message(repo, msg, allowed, client)
             if reply:
                 api.reply(msg["chat"]["id"], reply)
+        elif update.get("callback_query"):
+            handle_callback(repo, api, update["callback_query"], allowed)
         # Fikir kaydedildikten SONRA ilerlenir: çökme olursa mesaj kaybolmaz, tekrar işlenir.
         kv_set(repo, OFFSET_KEY, int(update["update_id"]) + 1)
     if updates:
