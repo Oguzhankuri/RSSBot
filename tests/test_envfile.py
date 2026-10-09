@@ -14,7 +14,7 @@ TOKEN = "123456789:" + "A" * 35
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     _isolate_env(monkeypatch)
-    for key in ("TELEGRAM_BOT_TOKEN", "FAL_KEY", "SUPABASE_URL"):
+    for key in ("TELEGRAM_BOT_TOKEN", "HF_TOKEN", "SUPABASE_URL"):
         monkeypatch.setenv(key, "x")
         monkeypatch.delenv(key)
     path = tmp_path / ".env"
@@ -57,7 +57,7 @@ def test_mask_never_reveals():
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX izinleri")
 def test_permissions_preserved(env):
     os.chmod(env, 0o600)
-    envfile.update(env, {"FAL_KEY": "fal-anahtar-123"})
+    envfile.update(env, {"HF_TOKEN": "hf_anahtar-123"})
     assert stat.S_IMODE(env.stat().st_mode) == 0o600
 
 

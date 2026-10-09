@@ -25,7 +25,7 @@ grafikçilerin montajlayacağı düzenli bir paket çıkar. Sistem yayınlanan v
 |---|---|---|
 | 1. Planla (Beyin) | PC | Gündem + fikir kutusu + hafıza → yatay ve dikey için konu seçimi |
 | 2. Senaryolar | PC | Formata özel senaryolar + 4 dile çeviri (DeepSeek) |
-| 3. Görseller | Colab (ya da `fal` ile PC) | Yatay 1280×720 ×3, dikey 720×1280 ×5 |
+| 3. Görseller | Colab (ya da `hf_api` ile PC/sunucu) | Yatay 1280×720 ×3, dikey 720×1280 ×5 |
 | 4. Klon sesler | Colab | 4 dilde senin sesinle (Chatterbox) |
 | 5. TR ses kaydı | Sen | Panelden yükle ya da `ses/tr.wav` olarak kaydet |
 | 6. Grafikçi paketi | PC | `MONTAJ_NOTU.md` (sahne akışı, süreler, ekran yazıları) + `TESLIM.md` |
@@ -71,7 +71,6 @@ görsel boyutu/adedi, kelime hedefi. `config.yaml → formats.overrides` ile tek
 
 ```
 DEEPSEEK_API_KEY=sk-...            # zorunlu
-FAL_KEY=...                        # sadece images.provider=fal ise
 HF_TOKEN=hf_...                    # yerel FLUX için: model sayfasında lisansı onayla + Read token
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_KEY=...           # Supabase → Project Settings → API → service_role (GİZLİ tut!)
@@ -112,7 +111,7 @@ Referans sesini `MyDrive/gunluk-bulten/refs/ref_voice.wav` olarak koy (10–20 s
 
 ### 4) Colab
 Notebook'u aç (panelde *Colab'ı aç*), **Runtime → T4 GPU**, soldaki 🔑 **Secrets**'a
-`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `HF_TOKEN` (+ gerekiyorsa `FAL_KEY`) ekle ve *Notebook access*'i aç.
+`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `HF_TOKEN` ekle ve *Notebook access*'i aç.
 
 ### 5) Telegram 7/24 senkronu (GitHub Actions)
 GitHub repo → *Settings → Secrets and variables → Actions*: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
@@ -167,7 +166,7 @@ Bir haber sitesinin RSS'inden günde **8 haber** çekip her biri için:
 |---|---|---|---|
 | Senaryo + çeviri | DeepSeek API (`deepseek-chat`) | — | API (GPU yok), ~$1–2/ay |
 | Görsel | FLUX.1-schnell (`diffusers`) | Apache-2.0 ✅ ticari | Colab/GPU |
-| Görsel (yedek) | fal.ai `fal-ai/flux/schnell` | — | API, ~$2–11/ay |
+| Görsel (yedek) | Hugging Face Inference API (aynı FLUX modeli) | Apache-2.0 ✅ | API; aylık ücretsiz kredi, sonrası HF PRO |
 | TR ses | Senin kaydın | — | Manuel |
 | 4 dil ses | Chatterbox Multilingual (`chatterbox-tts`) | MIT ✅ ticari | Colab/GPU |
 
@@ -203,7 +202,7 @@ python run_voice.py
 
 > ⚠️ **Kurulum sırası önemli:** `chatterbox-tts` kendi `diffusers==0.29.0` ve `torch==2.6.0` sürümlerini sabitler; FLUX ise `diffusers>=0.30` ister. Bu yüzden ikisi ayrı dosyada ve sırayla kurulur. İkisini sürekli aynı makinede kullanacaksan iki ayrı sanal ortam (`.venv-flux`, `.venv-voice`) aç.
 
-GPU'n yoksa `config.yaml` içinde `images.provider: "fal"` yap ve `.env`'e `FAL_KEY` ekle — FAZ A tamamen GPU'suz çalışır.
+GPU'n yoksa `config.yaml` içinde `images.provider: "hf_api"` yap ve `.env`'e `HF_TOKEN` ekle — FAZ A tamamen GPU'suz çalışır.
 
 ---
 
@@ -213,7 +212,7 @@ GPU'n yoksa `config.yaml` içinde `images.provider: "fal"` yap ve `.env`'e `FAL_
 
 ```
 DEEPSEEK_API_KEY=sk-...     # zorunlu
-FAL_KEY=...                 # sadece images.provider=fal ise
+HF_TOKEN=...                # images.provider=hf_api ise
 ```
 
 ### `config.yaml` — sadece şunları doldur
@@ -282,10 +281,10 @@ AI ile üretilen **orijinal** görsel ve ses Content ID'ye takılmaz. Görsel pr
 
 | Sorun | Çözüm |
 |---|---|
-| `GPU bulunamadı` | Colab'da runtime'ı **T4 GPU** yap, ya da `images.provider: "fal"`. |
-| Colab FLUX yüklerken çöküyor / "session crashed" | Ücretsiz Colab'ın ~12 GB RAM'i FLUX için yetmeyebilir. `images.provider: "fal"` kullan veya Colab Pro'da L4/A100 + High-RAM seç. |
-| `CUDA out of memory` (Flux) | Kod 30 GB altı kartlarda (T4/L4) `enable_sequential_cpu_offload()` (yavaş ama düşük VRAM), 30–40 GB'ta `enable_model_cpu_offload()` kullanır. Yine olmuyorsa `provider: "fal"`. |
-| `HİÇ GÖRSEL ÜRETİLEMEDİ` | Görseller başarısız oldu; o haberler "görüldü" sayılmaz, bir sonraki çalıştırmada tekrar denenir. `provider: "fal"`'a geç. |
+| `GPU bulunamadı` | Colab'da runtime'ı **T4 GPU** yap, ya da `images.provider: "hf_api"` (HF_TOKEN gerekir). |
+| Colab FLUX yüklerken çöküyor / "session crashed" | Ücretsiz Colab'ın ~12 GB RAM'i FLUX için yetmeyebilir. `images.provider: "hf_api"` kullan veya Colab Pro'da L4/A100 + High-RAM seç. |
+| `CUDA out of memory` (Flux) | Kod 30 GB altı kartlarda (T4/L4) `enable_sequential_cpu_offload()` (yavaş ama düşük VRAM), 30–40 GB'ta `enable_model_cpu_offload()` kullanır. Yine olmuyorsa `provider: "hf_api"`. |
+| `HİÇ GÖRSEL ÜRETİLEMEDİ` | Görseller başarısız oldu; o haberler "görüldü" sayılmaz, bir sonraki çalıştırmada tekrar denenir. `provider: "hf_api"`'a geç. |
 | `Chatterbox Multilingual bulunamadı` | `pip install -r requirements-voice.txt`. Paket API'si değiştiyse sınıf `chatterbox.mtl_tts.ChatterboxMultilingualTTS` altında olmalı. |
 | `ImportError: FluxPipeline` | Chatterbox, diffusers'ı 0.29'a düşürmüş. `pip install -U "diffusers>=0.30"` ya da ayrı ortam kullan. |
 | `DEEPSEEK_API_KEY bulunamadı` | Proje kökünde `.env` var mı ve anahtar dolu mu kontrol et. |

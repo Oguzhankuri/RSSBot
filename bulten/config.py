@@ -17,7 +17,7 @@ class ConfigError(Exception):
 
 
 PLACEHOLDER_FEED_MARKER = "ORNEK-HABER-SITESI"
-VALID_IMAGE_PROVIDERS = ("flux_local", "fal")
+VALID_IMAGE_PROVIDERS = ("flux_local", "hf_api")
 
 
 def get_env(key: str, required: bool = False) -> str | None:
@@ -59,9 +59,9 @@ def load_config(
     uses_supabase = merged["db"]["provider"] == "supabase"
     env = {
         "DEEPSEEK_API_KEY": get_env("DEEPSEEK_API_KEY", required=require_text),
-        "FAL_KEY": get_env(
-            "FAL_KEY",
-            required=require_text and raw["images"]["provider"] == "fal",
+        "HF_TOKEN": get_env(
+            "HF_TOKEN",
+            required=require_text and raw["images"]["provider"] == "hf_api",
         ),
         "SUPABASE_URL": get_env("SUPABASE_URL", required=require_db and uses_supabase),
         "SUPABASE_SERVICE_KEY": get_env("SUPABASE_SERVICE_KEY", required=require_db and uses_supabase),

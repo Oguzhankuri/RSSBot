@@ -59,8 +59,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting("DEEPSEEK_API_KEY", "DeepSeek API anahtarı", "Senaryo ve çeviri. platform.deepseek.com → API Keys"),
     Setting("TELEGRAM_BOT_TOKEN", "Telegram bot token", "@BotFather → /newbot", _telegram_token),
     Setting("TELEGRAM_ALLOWED_USER_ID", "Telegram kullanıcı kimliğin", "@userinfobot'a yaz, verdiği sayı", _digits),
-    Setting("FAL_KEY", "fal.ai anahtarı", "Sadece images.provider=fal ise"),
-    Setting("HF_TOKEN", "Hugging Face token", "Yerel FLUX için (PC'de görsel üretiliyorsa)"),
+    Setting("HF_TOKEN", "Hugging Face token", "Görseller: FLUX lisansı onaylı hesabın 'Read' token'ı (images.provider=hf_api ya da yerel FLUX)"),
     Setting("SUPABASE_URL", "Veritabanı adresi", "Yanlış girilirse panel veritabanına bağlanamaz!", _url, advanced=True),
     Setting("SUPABASE_SERVICE_KEY", "Veritabanı anahtarı", "Yanlış girilirse panel veritabanına bağlanamaz!", advanced=True),
 )

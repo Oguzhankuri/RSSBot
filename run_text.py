@@ -103,7 +103,7 @@ def run(config_path: str, date_str: str | None = None) -> int:
     image_count = sum(len(r["gorseller"]) for r in results)
     error_count = sum(1 for r in results if r["hatalar"])
     if image_count == 0:
-        logger.error('HİÇ GÖRSEL ÜRETİLEMEDİ. GPU/VRAM yetersiz olabilir; images.provider: "fal" deneyin.')
+        logger.error('HİÇ GÖRSEL ÜRETİLEMEDİ. GPU/VRAM yetersiz olabilir; images.provider: "hf_api" deneyin.')
     logger.info("=" * 60)
     logger.info("BİTTİ: %d haber, %d görsel. Uyarılı haber: %d", len(results), image_count, error_count)
     logger.info("Çıktı: %s", index_path.parent.resolve())

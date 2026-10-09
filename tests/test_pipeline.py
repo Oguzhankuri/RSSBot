@@ -144,9 +144,9 @@ def test_write_is_resumable(setup):
     assert len(repo.select("contents")) == before
 
 
-def test_fal_runs_images_on_pc_and_voice_disabled_skips(setup):
+def test_hf_api_runs_images_on_pc_and_voice_disabled_skips(setup):
     cfg, repo, deps, *_ = setup
-    cfg = {**cfg, "images": {**cfg["images"], "provider": "fal"}, "voice": {**cfg["voice"], "enabled": False}}
+    cfg = {**cfg, "images": {**cfg["images"], "provider": "hf_api"}, "voice": {**cfg["voice"], "enabled": False}}
     turn = runner.advance(repo, cfg, DATE, deps=deps)
     steps = _steps(repo)
     assert steps["images"] == model.DONE and steps["voices"] == model.SKIPPED

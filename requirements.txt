@@ -8,7 +8,7 @@ pillow
 soundfile
 numpy
 tzdata
-fal-client
+huggingface_hub>=0.30
 # v2 — panel, YouTube ölçüm
 streamlit>=1.40
 google-api-python-client

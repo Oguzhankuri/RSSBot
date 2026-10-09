@@ -22,7 +22,7 @@ checks = {
     "DeepSeek (senaryo)": bool(env.get("DEEPSEEK_API_KEY")),
     f"Veritabanı ({cfg['db']['provider']})": True,
     "Telegram botu": bool(env.get("TELEGRAM_BOT_TOKEN") and env.get("TELEGRAM_ALLOWED_USER_ID")),
-    "fal.ai (opsiyonel)": bool(env.get("FAL_KEY")),
+    f"Hugging Face (görseller: {cfg['images']['provider']})": bool(env.get("HF_TOKEN")) or cfg["images"]["provider"] == "flux_local",
 }
 for name, ok in checks.items():
     st.markdown(f"{'✅' if ok else '❌'} {name}")

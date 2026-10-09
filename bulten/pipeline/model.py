@@ -38,8 +38,8 @@ STEP_BY_KEY = {s.key: s for s in STEPS}
 
 
 def actor_for(step: StepDef, cfg: dict[str, Any]) -> str:
-    if step.key == "images" and cfg["images"].get("provider") == "fal":
-        return PC  # fal.ai API'si GPU istemez
+    if step.key == "images" and cfg["images"].get("provider") == "hf_api":
+        return PC  # Hugging Face API'si GPU istemez
     return step.actor
 
 

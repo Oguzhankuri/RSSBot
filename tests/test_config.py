@@ -6,7 +6,7 @@ from bulten.config import ConfigError, load_config
 @pytest.fixture(autouse=True)
 def clear_env(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-    monkeypatch.delenv("FAL_KEY", raising=False)
+    monkeypatch.delenv("HF_TOKEN", raising=False)
 
 
 def test_load_config_ok(write_cfg, tmp_path):
@@ -47,10 +47,15 @@ def test_bad_provider(write_cfg, base_cfg):
         load_config(write_cfg({"images": {**base_cfg["images"], "provider": "x"}}))
 
 
-def test_fal_key_required(write_cfg, base_cfg, monkeypatch):
+def test_hf_token_required_for_hf_api(write_cfg, base_cfg, monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "x")
-    with pytest.raises(ConfigError, match="FAL_KEY"):
-        load_config(write_cfg({"images": {**base_cfg["images"], "provider": "fal"}}), require_text=True)
+    with pytest.raises(ConfigError, match="HF_TOKEN"):
+        load_config(write_cfg({"images": {**base_cfg["images"], "provider": "hf_api"}}), require_text=True)
+
+
+def test_fal_provider_removed(write_cfg, base_cfg):
+    with pytest.raises(ConfigError, match="provider"):
+        load_config(write_cfg({"images": {**base_cfg["images"], "provider": "fal"}}))
 
 
 def test_ref_audio_required(write_cfg, base_cfg):

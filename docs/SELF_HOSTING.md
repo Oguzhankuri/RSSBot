@@ -134,7 +134,7 @@ nano .env
 ```
 ```
 DEEPSEEK_API_KEY=...            # zorunlu (senaryo)
-FAL_KEY=...                     # images.provider=fal ise
+HF_TOKEN=...                    # images.provider=hf_api ise (görseller sunucuda)
 TELEGRAM_BOT_TOKEN=...          # Telegram fikir kutusu
 TELEGRAM_ALLOWED_USER_ID=...    # sadece bu kişinin mesajları kabul edilir
 ```
@@ -190,7 +190,7 @@ PC'deki kopyayı da sil (içinde fikirler var).
 | `POSTGRES_PASSWORD`, `AUTHENTICATOR_PASSWORD`, `JWT_SECRET` | sunucu (`setup_db.py`) | sunucu `docker/.env` | kimse (sunucudan çıkmaz) |
 | `SUPABASE_SERVICE_KEY` | sunucu | sunucu `.env` + **Colab Secrets** | proje sahibi |
 | Panel şifresi | proje sahibi | hiçbir yerde (sadece özeti) | proje sahibi |
-| `DEEPSEEK_API_KEY`, `FAL_KEY`, `TELEGRAM_*`, `HF_TOKEN` | proje sahibi | sunucu `.env` (HF_TOKEN yalnız Colab) | proje sahibi |
+| `DEEPSEEK_API_KEY`, `TELEGRAM_*`, `HF_TOKEN` | proje sahibi | sunucu `.env` + Colab Secrets (HF_TOKEN) | proje sahibi |
 | rclone Drive token'ı | proje sahibinin onayı | sunucu `~/.config/rclone/rclone.conf` | kimse |
 
 **Aktarım yöntemi** (tercih sırasıyla): ortak şifre yöneticisi (Bitwarden/1Password) → tek seferlik not (Bitwarden Send) →

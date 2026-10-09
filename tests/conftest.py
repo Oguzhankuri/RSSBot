@@ -13,7 +13,7 @@ def base_cfg() -> dict:
         raw = yaml.safe_load(fh)
     cfg = copy.deepcopy(raw)
     cfg["feeds"] = ["https://example.com/rss"]
-    cfg["env"] = {"DEEPSEEK_API_KEY": "test-key", "FAL_KEY": None}
+    cfg["env"] = {"DEEPSEEK_API_KEY": "test-key", "HF_TOKEN": None}
     return cfg
 
 
