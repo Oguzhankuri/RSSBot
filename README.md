@@ -75,7 +75,7 @@ HF_TOKEN=hf_...                    # yerel FLUX için: model sayfasında lisans�
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_KEY=...           # Supabase → Project Settings → API → service_role (GİZLİ tut!)
 TELEGRAM_BOT_TOKEN=...             # @BotFather → /newbot
-TELEGRAM_ALLOWED_USER_ID=...       # @userinfobot'a yaz, verdiği sayı. Bot sadece sana cevap verir.
+TELEGRAM_ALLOWED_USER_ID=...       # @userinfobot'tan sayın; ekip için virgülle: 111,222. Listede olmayana cevap vermez.
 ```
 
 ### 2) Supabase (ücretsiz) — PC, Colab ve Telegram aynı veriyi görsün

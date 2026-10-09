@@ -136,7 +136,7 @@ nano .env
 DEEPSEEK_API_KEY=...            # zorunlu (senaryo)
 HF_TOKEN=...                    # images.provider=hf_api ise (görseller sunucuda)
 TELEGRAM_BOT_TOKEN=...          # Telegram fikir kutusu
-TELEGRAM_ALLOWED_USER_ID=...    # sadece bu kişinin mesajları kabul edilir
+TELEGRAM_ALLOWED_USER_ID=...    # izinli kişiler, virgülle: 111111111,222222222
 ```
 Panel şifresi (en az 12 karakter; proje sahibi kendisi yazsın — ekranda görünmez):
 ```bash

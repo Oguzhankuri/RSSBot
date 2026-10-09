@@ -31,9 +31,10 @@ def _not_empty(value: str) -> None:
         raise EnvError("Boş olamaz.")
 
 
-def _digits(value: str) -> None:
-    if not re.fullmatch(r"-?\d{3,20}", value):
-        raise EnvError("Sadece rakamlardan oluşmalı (ör. 123456789).")
+def _id_list(value: str) -> None:
+    parts = [p for p in re.split(r"[,\s;]+", value) if p]
+    if not parts or not all(re.fullmatch(r"-?\d{3,20}", p) for p in parts):
+        raise EnvError("Sadece rakamlar; ekip için virgülle ayır (ör. 111111111,222222222).")
 
 
 def _telegram_token(value: str) -> None:
@@ -58,7 +59,9 @@ class Setting:
 SETTINGS: tuple[Setting, ...] = (
     Setting("DEEPSEEK_API_KEY", "DeepSeek API anahtarı", "Senaryo ve çeviri. platform.deepseek.com → API Keys"),
     Setting("TELEGRAM_BOT_TOKEN", "Telegram bot token", "@BotFather → /newbot", _telegram_token),
-    Setting("TELEGRAM_ALLOWED_USER_ID", "Telegram kullanıcı kimliğin", "@userinfobot'a yaz, verdiği sayı", _digits),
+    Setting("TELEGRAM_ALLOWED_USER_ID", "Telegram kullanıcı kimlikleri (sen + ekip)",
+            "Her kişi @userinfobot'a yazıp sayısını versin; virgülle ayır: 111111111,222222222. "
+            "Bu listede olmayanların mesajları yok sayılır.", _id_list),
     Setting("HF_TOKEN", "Hugging Face token", "Görseller: FLUX lisansı onaylı hesabın 'Read' token'ı (images.provider=hf_api ya da yerel FLUX)"),
     Setting("SUPABASE_URL", "Veritabanı adresi", "Yanlış girilirse panel veritabanına bağlanamaz!", _url, advanced=True),
     Setting("SUPABASE_SERVICE_KEY", "Veritabanı anahtarı", "Yanlış girilirse panel veritabanına bağlanamaz!", advanced=True),

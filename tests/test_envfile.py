@@ -38,6 +38,7 @@ def test_update_preserves_other_lines_and_sets_environ(env):
     ("DEEPSEEK_API_KEY", "a\nEVIL=1", "satır sonu"),
     ("DEEPSEEK_API_KEY", "   ", "Boş"),
     ("TELEGRAM_ALLOWED_USER_ID", "abc", "rakam"),
+    ("TELEGRAM_ALLOWED_USER_ID", "123456,@ahmet", "rakam"),
     ("TELEGRAM_BOT_TOKEN", "yanlis", "BotFather"),
     ("SUPABASE_URL", "https://x.com/rest/v1", "yol olmadan"),
     ("lower_key", "x", "Geçersiz anahtar"),
@@ -85,8 +86,8 @@ def test_settings_page_updates_env(panel_env, env, monkeypatch):  # noqa: F811
     assert any("DeepSeek" in lbl and "••••3456" in lbl for lbl in labels)
     assert not any("eski-anahtar" in lbl for lbl in labels)
     field = next(t for t in at.text_input if t.label.startswith("Telegram kullanıcı"))
-    field.input("987654321")
+    field.input("987654321, 123456789")
     next(b for b in at.button if "Kaydet" in b.label).click().run()
     assert not at.exception
-    assert envfile.read(env)["TELEGRAM_ALLOWED_USER_ID"] == "987654321"
+    assert envfile.read(env)["TELEGRAM_ALLOWED_USER_ID"] == "987654321, 123456789"
     assert envfile.read(env)["DEEPSEEK_API_KEY"] == "eski-anahtar-123456"

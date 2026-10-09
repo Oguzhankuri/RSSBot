@@ -120,5 +120,20 @@ def test_api_errors_and_config():
     telegram_sync.TelegramApi("t", http=Bad()).reply(1, "x")  # hata yutulur, loglanır
     with pytest.raises(telegram_sync.TelegramError, match="ALLOWED"):
         telegram_sync.from_config({"env": {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_ALLOWED_USER_ID": "abc"}})
-    api, uid = telegram_sync.from_config({"env": {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_ALLOWED_USER_ID": "42"}})
-    assert uid == 42
+    with pytest.raises(telegram_sync.TelegramError, match="virgül"):
+        telegram_sync.from_config({"env": {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_ALLOWED_USER_ID": ""}})
+    api, ids = telegram_sync.from_config({"env": {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_ALLOWED_USER_ID": "4242"}})
+    assert ids == {4242}
+    _, ids = telegram_sync.from_config({"env": {"TELEGRAM_ALLOWED_USER_ID": "1111, 2222;3333", "TELEGRAM_BOT_TOKEN": "t"}})
+    assert ids == {1111, 2222, 3333}
+
+
+def test_team_members_accepted_and_author_recorded(repo):
+    team = frozenset({OWNER, 5555})
+    message = {"message_id": 7, "chat": {"id": 5555}, "from": {"id": 5555, "first_name": "Ayşe", "last_name": "Y"},
+               "text": "ekip fikri"}
+    assert "Kaydedildi" in telegram_sync.handle_message(repo, message, team)
+    stranger = {**message, "message_id": 8, "from": {"id": 9999}}
+    assert telegram_sync.handle_message(repo, stranger, team) == "Bu bot özeldir."
+    rows = repo.select("ideas")
+    assert len(rows) == 1 and rows[0]["source"] == "telegram:Ayşe Y"

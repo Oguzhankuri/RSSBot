@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import sys
-from typing import Any
+from typing import Any, Collection
 
 import requests
 
@@ -25,6 +26,7 @@ API_URL = "https://api.telegram.org/bot{token}/{method}"
 OFFSET_KEY = "telegram_offset"
 TIMEOUT = 20
 URGENT_PREFIX = "!"
+MAX_AUTHOR_LEN = 40
 HELP_TEXT = (
     "💡 Fikir kutusu\n"
     "• Ne yazarsan fikir olarak kaydedilir.\n"
@@ -100,10 +102,30 @@ def message_idea_id(msg: dict) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
-def handle_message(repo: Repo, msg: dict, allowed_user_id: int, client: Any | None = None) -> str | None:
+def parse_allowed_ids(raw: str | None) -> frozenset[int]:
+    """'111, 222 333' → {111, 222, 333}. Ekipte herkesin kimliği virgülle yazılır."""
+    parts = [p for p in re.split(r"[,\s;]+", (raw or "").strip()) if p]
+    if not parts or not all(re.fullmatch(r"-?\d{3,20}", p) for p in parts):
+        raise TelegramError(
+            "TELEGRAM_ALLOWED_USER_ID sayısal Telegram kimlikleri olmalı; ekip için virgülle ayır "
+            "(ör. 111111111,222222222 — @userinfobot verir)."
+        )
+    return frozenset(int(p) for p in parts)
+
+
+def _author(msg: dict) -> str:
+    sender = msg.get("from") or {}
+    name = " ".join(x for x in (sender.get("first_name"), sender.get("last_name")) if x) or sender.get("username") or ""
+    return re.sub(r"\s+", " ", name).strip()[:MAX_AUTHOR_LEN]
+
+
+def handle_message(
+    repo: Repo, msg: dict, allowed: Collection[int] | int, client: Any | None = None
+) -> str | None:
     """Mesajı işler, gönderilecek yanıtı döndürür (None = yanıt verme)."""
+    allowed_ids = {allowed} if isinstance(allowed, int) else allowed
     sender = (msg.get("from") or {}).get("id")
-    if sender != allowed_user_id:
+    if sender not in allowed_ids:
         logger.warning("Yetkisiz bir Telegram kullanıcısının mesajı yok sayıldı.")  # kimlik public loga yazılmaz
         return "Bu bot özeldir."
     text = (msg.get("text") or msg.get("caption") or "").strip()
@@ -113,7 +135,9 @@ def handle_message(repo: Repo, msg: dict, allowed_user_id: int, client: Any | No
         return _command(repo, text)
     priority = 5 if text.startswith(URGENT_PREFIX) else 3
     try:
-        idea = ideas.add_idea(repo, text.lstrip(URGENT_PREFIX).strip(), "telegram", priority, client,
+        author = _author(msg)
+        source = f"telegram:{author}" if author else "telegram"
+        idea = ideas.add_idea(repo, text.lstrip(URGENT_PREFIX).strip(), source, priority, client,
                               idea_id=message_idea_id(msg))
     except RepoError as exc:
         if exc.conflict:
@@ -125,14 +149,14 @@ def handle_message(repo: Repo, msg: dict, allowed_user_id: int, client: Any | No
     return f"✅ Kaydedildi [{ideas.short_id(idea)}]{label}" + (" · 🔥 acil" if priority == 5 else "")
 
 
-def sync(repo: Repo, api: TelegramApi, allowed_user_id: int, client: Any | None = None) -> int:
+def sync(repo: Repo, api: TelegramApi, allowed: Collection[int] | int, client: Any | None = None) -> int:
     """Bekleyen tüm mesajları işler; işlenen güncelleme sayısını döndürür."""
     offset = int(kv_get(repo, OFFSET_KEY, 0) or 0)
     updates = api.call("getUpdates", offset=offset, timeout=0, allowed_updates=["message"])
     for update in updates:
         msg = update.get("message")
         if msg:
-            reply = handle_message(repo, msg, allowed_user_id, client)
+            reply = handle_message(repo, msg, allowed, client)
             if reply:
                 api.reply(msg["chat"]["id"], reply)
         # Fikir kaydedildikten SONRA ilerlenir: çökme olursa mesaj kaybolmaz, tekrar işlenir.
@@ -142,12 +166,10 @@ def sync(repo: Repo, api: TelegramApi, allowed_user_id: int, client: Any | None 
     return len(updates)
 
 
-def from_config(cfg: dict[str, Any]) -> tuple[TelegramApi, int]:
+def from_config(cfg: dict[str, Any]) -> tuple[TelegramApi, frozenset[int]]:
     env = cfg.get("env") or {}
-    raw_id = (env.get("TELEGRAM_ALLOWED_USER_ID") or "").strip()
-    if not raw_id.lstrip("-").isdigit():
-        raise TelegramError("TELEGRAM_ALLOWED_USER_ID sayısal Telegram kullanıcı kimliğin olmalı (ör. @userinfobot).")
-    return TelegramApi(env.get("TELEGRAM_BOT_TOKEN") or ""), int(raw_id)
+    allowed = parse_allowed_ids(env.get("TELEGRAM_ALLOWED_USER_ID"))
+    return TelegramApi(env.get("TELEGRAM_BOT_TOKEN") or ""), allowed
 
 
 def main(argv: list[str] | None = None) -> int:

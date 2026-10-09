@@ -44,12 +44,19 @@ status = top[0].radio("Göster", ideas.STATUSES, horizontal=True,
 if top[1].button("📨 Telegram'ı çek", use_container_width=True):
     pull_telegram(show=True)
 
+def _source_label(source: str) -> str:
+    if not source.startswith("telegram"):
+        return "💻"
+    author = source.partition(":")[2]
+    return f"📱 {author}" if author else "📱"
+
+
 rows = ideas.list_ideas(repo, status)
 st.caption(f"{len(rows)} fikir")
 for idea in rows:
     meta = " · ".join(x for x in [
         f"⭐{idea.get('priority', 3)}",
-        "📱" if idea.get("source") == "telegram" else "💻",
+        _source_label(idea.get("source") or ""),
         idea.get("category") or "",
         f"→ {idea['suggested_format']}" if idea.get("suggested_format") else "",
         (idea.get("created_at") or "")[:10],
