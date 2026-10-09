@@ -86,6 +86,23 @@ TELEGRAM_ALLOWED_USER_ID=...       # @userinfobot'a yaz, verdiği sayı. Bot sad
 
 > Supabase kurmadan da çalışır (`provider: "sqlite"`), ama o zaman Telegram ve Colab veritabanını göremez.
 
+### 2b) …ya da kendi veritabanın (Docker, self-hosted) 🐳
+Supabase hesabı gerekmez; aynı API (Postgres + PostgREST + Caddy) bilgisayarında ya da sunucunda çalışır:
+
+```bash
+python docker/setup_db.py                              # şifreleri üretir, .env + config.yaml'ı ayarlar (ekrana sır yazmaz)
+docker compose -f docker/docker-compose.yml up -d      # veritabanını başlatır (yalnızca 127.0.0.1:8000)
+```
+
+- **Colab için:** panel → ⚙️ Ayarlar → **▶️ Tüneli aç**. Çıkan `https://…trycloudflare.com` adresini Colab Secrets'a
+  `SUPABASE_URL` olarak, aynı sayfadaki anahtarı `SUPABASE_SERVICE_KEY` olarak yapıştır. Tünel adresi her açılışta değişir.
+- **Telegram:** veritabanı bilgisayardayken GitHub Actions ulaşamaz; panel açıkken fikirler 2 dakikada bir çekilir.
+  Telegram okunmamış mesajları 24 saat saklar.
+- **Sunucuya taşıma:** `docker/` klasörünü + `docker/.env`'i kopyala, `Caddyfile`'da `:80` yerine alan adını yaz
+  (Caddy HTTPS'i kendisi alır), `.env`'de `SUPABASE_URL=https://alan-adin` yap. Tünele ve PC'nin açık kalmasına gerek kalmaz;
+  GitHub Actions Telegram senkronu da tekrar çalışır.
+- Yedek: `docker compose -f docker/docker-compose.yml exec db pg_dump -U postgres postgres > yedek.sql`
+
 ### 3) Google Drive
 PC'ye **Google Drive for Desktop** kur ve `config.yaml → output.base_dir` değerini Drive'daki
 `gunluk-bulten/output` klasörüne yönlendir (ör. `"G:/My Drive/gunluk-bulten/output"`).

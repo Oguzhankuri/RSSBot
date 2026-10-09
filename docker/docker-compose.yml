@@ -1,0 +1,59 @@
+# RSSBot self-hosted veritabanı: Postgres + PostgREST + Caddy (Supabase uyumlu /rest/v1 adresi).
+# İlk kurulum:   python docker/setup_db.py      (şifreleri üretir, .env'leri yazar)
+# Başlat:        docker compose -f docker/docker-compose.yml up -d
+# Colab tüneli:  docker compose -f docker/docker-compose.yml --profile tunnel up -d
+#
+# Sunucuya taşırken: aynı dosya + docker/.env kopyalanır; Caddyfile'da adres yerine alan adı yazılır (otomatik HTTPS).
+name: rssbot
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?docker/.env eksik — önce setup_db.py}
+      AUTHENTICATOR_PASSWORD: ${AUTHENTICATOR_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb/00_roles.sh:/docker-entrypoint-initdb.d/00_roles.sh:ro
+      - ../db/migrations/001_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./initdb/02_grants.sql:/docker-entrypoint-initdb.d/02_grants.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Port dışarı açılmaz; yalnızca PostgREST iç ağdan bağlanır.
+
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${AUTHENTICATOR_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:?}
+      PGRST_DB_MAX_ROWS: 1000
+
+  gateway:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on: [rest]
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8000}:80"   # yalnızca bu bilgisayar
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+  tunnel:
+    # Colab'ın erişebilmesi için geçici https adresi (*.trycloudflare.com). Her başlatmada adres değişir.
+    image: cloudflare/cloudflared:2024.12.2
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on: [gateway]
+    command: tunnel --no-autoupdate --url http://gateway:80
+
+volumes:
+  pgdata:

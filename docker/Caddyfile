@@ -1,0 +1,10 @@
+# Supabase ile aynı yol: https://<adres>/rest/v1/<tablo>
+# Sunucuda ':80' yerine alan adını yaz (ör. db.ornek.com) — Caddy HTTPS sertifikasını kendisi alır.
+:80 {
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000
+	}
+	handle {
+		respond "RSSBot DB gateway" 200
+	}
+}

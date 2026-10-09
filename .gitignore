@@ -8,8 +8,10 @@ htmlcov/
 output/*
 !output/.gitkeep
 state/seen.json
-refs/*.wav
+refs/*
+!refs/.gitkeep
 secrets/
 token.json
 state/bulten.db
 output/*/_islem_gunlugu.log
+docker/.env

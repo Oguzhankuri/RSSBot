@@ -1,5 +1,6 @@
 """Kod incelemesinde bulunan hataların regresyon testleri."""
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -129,3 +130,64 @@ def test_gated_model_gives_turkish_help(monkeypatch, base_cfg):
     monkeypatch.setitem(sys.modules, "diffusers", types.SimpleNamespace(FluxPipeline=FluxPipeline))
     with pytest.raises(images.ImageGenerationError, match="HF_TOKEN"):
         images.FluxLocalBackend(base_cfg)
+
+
+def test_dbstack_tunnel_url_and_errors(monkeypatch):
+    import subprocess
+
+    from bulten import dbstack
+
+    class Done:
+        def __init__(self, code, out):
+            self.returncode, self.stdout, self.stderr = code, out, ""
+
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return Done(0, "INF https://a-b.trycloudflare.com\nINF https://c-d.trycloudflare.com\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert dbstack.tunnel_url() == "https://c-d.trycloudflare.com"
+    dbstack.start_tunnel()
+    assert calls[-1][-3:] == ["up", "-d", "tunnel"]
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: Done(1, "no such service"))
+    assert dbstack.tunnel_url() is None
+    with pytest.raises(dbstack.StackError, match="no such"):
+        dbstack.stop_tunnel()
+
+    def boom(cmd, **kw):
+        raise FileNotFoundError("docker")
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    with pytest.raises(dbstack.StackError, match="Docker Desktop"):
+        dbstack.start_tunnel()
+
+
+def test_uses_local_db():
+    from bulten import panel_support as ps
+
+    assert ps.uses_local_db({"db": {"provider": "supabase"}, "env": {"SUPABASE_URL": "http://127.0.0.1:8000"}})
+    assert not ps.uses_local_db({"db": {"provider": "supabase"}, "env": {"SUPABASE_URL": "https://x.supabase.co"}})
+    assert not ps.uses_local_db({"db": {"provider": "sqlite"}, "env": {}})
+
+
+def test_setup_db_jwt_and_env_merge(tmp_path):
+    import base64
+    import hashlib
+    import hmac
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location("setup_db", Path("docker/setup_db.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    token = mod.sign_jwt({"role": "service_role"}, "sır")
+    head, body, sig = token.split(".")
+    expected = hmac.new(b"s\xc4\xb1r", f"{head}.{body}".encode(), hashlib.sha256).digest()
+    assert base64.urlsafe_b64decode(sig + "==") == expected
+    assert json.loads(base64.urlsafe_b64decode(body + "==")) == {"role": "service_role"}
+    env = tmp_path / ".env"
+    env.write_text("# yorum\nDEEPSEEK_API_KEY=abc\nSUPABASE_URL=eski\n", encoding="utf-8")
+    mod.set_env_values(env, {"SUPABASE_URL": "yeni", "SUPABASE_SERVICE_KEY": "k"})
+    assert env.read_text(encoding="utf-8") == "# yorum\nDEEPSEEK_API_KEY=abc\nSUPABASE_URL=yeni\nSUPABASE_SERVICE_KEY=k\n"

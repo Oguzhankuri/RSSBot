@@ -5,9 +5,11 @@ from __future__ import annotations
 from datetime import date
 
 import streamlit as st
-from common import CONFIG_PATH, boot
+from common import CONFIG_PATH, boot, chat_client
 
+from bulten import dbstack, telegram_sync
 from bulten import panel_support as ps
+from bulten.db import RepoError
 from bulten.pipeline import model, runner
 from bulten.utils import today_str
 
@@ -47,6 +49,13 @@ def live_status() -> None:
             cols[2].caption("Colab hücresini tekrar çalıştır; sadece eksikler üretilir.")
         cols[0].link_button("🚀 Colab'ı aç", ps.colab_url(cfg), type="primary", use_container_width=True)
         cols[1].caption("Colab'da tek hücreyi ▶ çalıştır. Bitince bu ekran kendiliğinden güncellenir.")
+        if ps.uses_local_db(cfg):
+            url = dbstack.tunnel_url()
+            if url:
+                st.caption("Colab Secrets → SUPABASE_URL şu olmalı (tünel adresi her açılışta değişir):")
+                st.code(url, language=None)
+            else:
+                st.warning("Veritabanı bu bilgisayarda: Colab'ın ulaşması için önce ⚙️ Ayarlar → 'Tüneli aç'.")
     elif turn.status == model.FAILED:
         cols[0].button("🔁 Tekrar dene", type="primary", use_container_width=True, on_click=start)
     elif turn.actor == model.PC and turn.status != model.RUNNING:
@@ -94,7 +103,20 @@ def tr_voice_panel() -> None:
                     st.error(str(exc))
 
 
+@st.fragment(run_every=120)
+def telegram_background_sync() -> None:
+    """Veritabanı bu bilgisayardaysa GitHub Actions ulaşamaz; panel açıkken fikirleri panel çeker."""
+    if not (cfg["env"].get("TELEGRAM_BOT_TOKEN") and cfg["env"].get("TELEGRAM_ALLOWED_USER_ID")):
+        return
+    try:
+        api, owner = telegram_sync.from_config(cfg)
+        telegram_sync.sync(repo, api, owner, chat_client(cfg))
+    except (telegram_sync.TelegramError, RepoError) as exc:
+        st.caption(f"📨 Telegram senkronu bekliyor: {exc}")
+
+
 live_status()
+telegram_background_sync()
 
 with st.sidebar:
     st.header("Bakım")

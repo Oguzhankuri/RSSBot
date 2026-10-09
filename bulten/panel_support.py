@@ -33,6 +33,12 @@ def colab_url(cfg: dict[str, Any]) -> str:
     return (cfg.get("colab") or {}).get("notebook_url") or DEFAULT_COLAB_URL
 
 
+def uses_local_db(cfg: dict[str, Any]) -> bool:
+    """Veritabanı bu bilgisayardaki Docker'da mı (Colab için tünel gerekir)?"""
+    url = (cfg.get("env") or {}).get("SUPABASE_URL") or ""
+    return cfg.get("db", {}).get("provider") == "supabase" and ("127.0.0.1" in url or "localhost" in url)
+
+
 def pipeline_command(date_str: str, config_path: str = "config.yaml", force: bool = False) -> list[str]:
     cmd = [sys.executable, "-m", "bulten.pipeline", "advance", "--date", date_str, "--config", config_path]
     return cmd + ["--force"] if force else cmd

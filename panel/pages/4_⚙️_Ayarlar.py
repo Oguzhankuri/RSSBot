@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
+
 import streamlit as st
 import yaml
 from common import boot, reload_config
 
-from bulten import formats
+from bulten import dbstack, formats
 from bulten import panel_support as ps
 
 cfg, repo = boot("Ayarlar", "⚙️")
@@ -26,6 +28,36 @@ st.markdown(f"🔗 Colab: {ps.colab_url(cfg)}")
 st.markdown(f"📁 Çıktı klasörü: `{cfg['output']['base_dir']}`")
 if cfg["db"]["provider"] == "sqlite":
     st.warning("Veritabanı yerel (SQLite). Telegram ve Colab'ın aynı veriyi görmesi için Supabase'e geç (README).")
+
+if ps.uses_local_db(cfg):
+    st.subheader("🌐 Colab tüneli")
+    st.caption(
+        "Veritabanı bu bilgisayarda (Docker). Colab'ın ulaşması için tünel açılır; adres her açılışta değişir. "
+        "Aşağıdaki adresi Colab → 🔑 Secrets → SUPABASE_URL olarak yapıştır."
+    )
+    if st.toggle("SUPABASE_SERVICE_KEY'i göster (Colab Secrets'a yapıştırmak için)"):
+        st.caption("Bu anahtar şifre gibidir: yalnızca Colab Secrets'a yapıştır, kimseyle paylaşma.")
+        st.code(env.get("SUPABASE_SERVICE_KEY") or "", language=None)
+    url = dbstack.tunnel_url()
+    if url:
+        st.code(url, language=None)
+        if st.button("⏹️ Tüneli kapat"):
+            try:
+                dbstack.stop_tunnel()
+                st.rerun()
+            except dbstack.StackError as exc:
+                st.error(str(exc))
+    elif st.button("▶️ Tüneli aç", type="primary"):
+        try:
+            with st.spinner("Tünel açılıyor…"):
+                dbstack.start_tunnel()
+                for _ in range(15):
+                    time.sleep(2)
+                    if dbstack.tunnel_url():
+                        break
+            st.rerun()
+        except dbstack.StackError as exc:
+            st.error(str(exc))
 
 st.subheader("Formüller")
 st.caption("Her format bir YAML dosyası. {{title}}, {{text}}, {{target_words}}, {{tone}}, {{image_count}}, {{guidance}} alanları otomatik doldurulur.")
