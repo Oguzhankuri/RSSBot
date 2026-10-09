@@ -57,7 +57,8 @@ class FakeHttp:
         if method == "getUpdates":
             result = [u for u in self.updates if u["update_id"] >= json["offset"]]
         else:
-            self.sent.append(json)
+            if method == "sendMessage":
+                self.sent.append(json)
             result = {}
         return type("R", (), {"json": lambda self_: {"ok": True, "result": result}})()
 
@@ -137,3 +138,29 @@ def test_team_members_accepted_and_author_recorded(repo):
     assert telegram_sync.handle_message(repo, stranger, team) == "Bu bot özeldir."
     rows = repo.select("ideas")
     assert len(rows) == 1 and rows[0]["source"] == "telegram:Ayşe Y"
+
+
+def test_command_menu_registered_once(repo):
+    calls = []
+
+    class Api:
+        def call(self, method, **params):
+            calls.append((method, params))
+            return []
+
+    telegram_sync.sync(repo, Api(), OWNER)
+    telegram_sync.sync(repo, Api(), OWNER)
+    menus = [p for m, p in calls if m == "setMyCommands"]
+    assert len(menus) == 1
+    assert [c["command"] for c in menus[0]["commands"]] == ["liste", "oncelik", "sil", "yardim"]
+
+
+def test_command_menu_failure_does_not_block_sync(repo):
+    class Api:
+        def call(self, method, **params):
+            if method == "setMyCommands":
+                raise telegram_sync.TelegramError("yok")
+            return []
+
+    assert telegram_sync.sync(repo, Api(), OWNER) == 0
+    assert kv_get(repo, telegram_sync.COMMANDS_KEY) is None

@@ -24,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 API_URL = "https://api.telegram.org/bot{token}/{method}"
 OFFSET_KEY = "telegram_offset"
+COMMANDS_KEY = "telegram_commands"
+# "/" yazınca Telegram'ın gösterdiği menü. Değiştirince bir sonraki senkronda bota yeniden bildirilir.
+BOT_COMMANDS = (
+    ("liste", "Açık fikirleri listele"),
+    ("oncelik", "Önceliği değiştir: /oncelik <kod> <1-5>"),
+    ("sil", "Fikri arşivle: /sil <kod>"),
+    ("yardim", "Nasıl kullanılır?"),
+)
 TIMEOUT = 20
 URGENT_PREFIX = "!"
 MAX_AUTHOR_LEN = 40
@@ -65,6 +73,19 @@ class TelegramApi:
             self.call("sendMessage", chat_id=chat_id, text=text)
         except TelegramError as exc:
             logger.warning("Yanıt gönderilemedi: %s", exc)
+
+
+def ensure_commands(repo: Repo, api: TelegramApi) -> None:
+    """Komut menüsünü bota bildirir; liste değişmediyse Telegram'a tekrar gitmez."""
+    signature = "|".join(f"{c}:{d}" for c, d in BOT_COMMANDS)
+    if kv_get(repo, COMMANDS_KEY) == signature:
+        return
+    try:
+        api.call("setMyCommands", commands=[{"command": c, "description": d} for c, d in BOT_COMMANDS])
+    except TelegramError as exc:
+        logger.warning("Komut menüsü ayarlanamadı (fikirler etkilenmez): %s", exc)
+        return
+    kv_set(repo, COMMANDS_KEY, signature)
 
 
 def _format_list(repo: Repo) -> str:
@@ -151,6 +172,7 @@ def handle_message(
 
 def sync(repo: Repo, api: TelegramApi, allowed: Collection[int] | int, client: Any | None = None) -> int:
     """Bekleyen tüm mesajları işler; işlenen güncelleme sayısını döndürür."""
+    ensure_commands(repo, api)
     offset = int(kv_get(repo, OFFSET_KEY, 0) or 0)
     updates = api.call("getUpdates", offset=offset, timeout=0, allowed_updates=["message"])
     for update in updates:
