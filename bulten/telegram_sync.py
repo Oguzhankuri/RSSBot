@@ -104,7 +104,7 @@ def handle_message(repo: Repo, msg: dict, allowed_user_id: int, client: Any | No
     """Mesajı işler, gönderilecek yanıtı döndürür (None = yanıt verme)."""
     sender = (msg.get("from") or {}).get("id")
     if sender != allowed_user_id:
-        logger.warning("Yetkisiz Telegram kullanıcısı yok sayıldı: %s", sender)
+        logger.warning("Yetkisiz bir Telegram kullanıcısının mesajı yok sayıldı.")  # kimlik public loga yazılmaz
         return "Bu bot özeldir."
     text = (msg.get("text") or msg.get("caption") or "").strip()
     if not text:

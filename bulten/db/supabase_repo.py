@@ -7,6 +7,7 @@ Yalnızca service key kullanılır; anahtar .env / Colab Secrets / GitHub Secret
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -17,6 +18,8 @@ from bulten.db.repo import Row, RepoError, check_table, now_iso, with_defaults
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 20
+# Repo public: GitHub Actions logları herkese açık → hata ayrıntısı (URL, satır verisi) yazılmaz.
+PUBLIC_LOGS = os.getenv("GITHUB_ACTIONS") == "true"
 PAGE_SIZE = 1000  # PostgREST varsayılan üst sınırı
 COLUMN_RE = re.compile(r"[a-z_]+")
 
@@ -48,11 +51,13 @@ class SupabaseRepo:
                 method, f"{self._base}/{table}", params=params, json=json, headers=headers, timeout=TIMEOUT
             )
         except requests.RequestException as exc:
-            raise RepoError(f"Supabase'e ulaşılamadı: {exc}") from exc
+            detail = type(exc).__name__ if PUBLIC_LOGS else str(exc)
+            raise RepoError(f"Supabase'e ulaşılamadı: {detail}") from exc
         if resp.status_code >= 400:
-            # Gövde Postgres hata mesajı içerir; anahtar içermez.
+            # Gövde satır verisi (ör. fikir metni) içerebilir; public CI loglarına yazılmaz.
+            body = "" if PUBLIC_LOGS else f": {resp.text[:300]}"
             raise RepoError(
-                f"Supabase {method} {table} hatası ({resp.status_code}): {resp.text[:300]}",
+                f"Supabase {method} {table} hatası ({resp.status_code}){body}",
                 conflict=resp.status_code == 409,
             )
         return resp.json() if resp.content else None

@@ -106,6 +106,14 @@ GitHub repo → *Settings → Secrets and variables → Actions*: `SUPABASE_URL`
 3. Dosyayı `secrets/client_secret.json` olarak kaydet → `python -m bulten.youtube auth` (bir kez, tarayıcıda onay).
 4. Panel → *Beyin* → **📊 YouTube metriklerini çek**.
 
+### 🔒 Bu repo public — dikkat
+- Anahtarlar **yalnızca** `.env` (gitignore'da), Colab Secrets ve GitHub Secrets'ta durur. Asla `config.yaml`'a ya da koda yazma.
+- GitHub Actions logları herkese açıktır; kod CI'da hata ayrıntısı (URL, satır verisi) ve yabancı kullanıcı kimliği yazmaz.
+- Fikirlerin, içeriklerin, öğrenilmiş kurallar ve metrikler repoda değil, **Supabase'te** (RLS açık) durur. Formül YAML'ları ise repoda, yani herkes görebilir.
+- Colab kodu `main`'den çeker: GitHub hesabında **2FA** açık olsun, `main`'e sadece sen push et.
+- GitHub, 60 gün commit olmayan public repolarda zamanlanmış workflow'ları durdurur; durursa *Actions* sekmesinden tekrar etkinleştir.
+- Bir anahtar yanlışlıkla commit'lenirse silmek yetmez (geçmişte kalır): anahtarı hemen **iptal edip yenile**.
+
 ### Komut satırı (panel olmadan)
 
 ```bash

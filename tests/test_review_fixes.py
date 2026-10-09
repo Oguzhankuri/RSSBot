@@ -90,3 +90,13 @@ def test_profile_snapshot_used_after_yaml_edit(setup):  # noqa: F811
     runner.advance(repo, cfg, DATE, deps=deps)
     plan = repo.get("runs", model.run_id_for(DATE))["plan"]
     assert plan["profiles"]["dikey"]["images"]["width"] == 720
+
+
+def test_public_ci_logs_hide_response_body(monkeypatch):
+    from bulten.db import supabase_repo
+
+    monkeypatch.setattr(supabase_repo, "PUBLIC_LOGS", True)
+    repo = SupabaseRepo("https://gizli.supabase.co", "k", session=FakeSession([FakeResp(400, {"text": "gizli fikir"})]))
+    with pytest.raises(RepoError) as info:
+        repo.select("ideas", limit=1)
+    assert "gizli fikir" not in str(info.value) and "(400)" in str(info.value)
