@@ -72,6 +72,7 @@ görsel boyutu/adedi, kelime hedefi. `config.yaml → formats.overrides` ile tek
 ```
 DEEPSEEK_API_KEY=sk-...            # zorunlu
 FAL_KEY=...                        # sadece images.provider=fal ise
+HF_TOKEN=hf_...                    # yerel FLUX için: model sayfasında lisansı onayla + Read token
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_KEY=...           # Supabase → Project Settings → API → service_role (GİZLİ tut!)
 TELEGRAM_BOT_TOKEN=...             # @BotFather → /newbot
@@ -93,7 +94,7 @@ Referans sesini `MyDrive/gunluk-bulten/refs/ref_voice.wav` olarak koy (10–20 s
 
 ### 4) Colab
 Notebook'u aç (panelde *Colab'ı aç*), **Runtime → T4 GPU**, soldaki 🔑 **Secrets**'a
-`SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (+ gerekiyorsa `FAL_KEY`) ekle ve *Notebook access*'i aç.
+`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `HF_TOKEN` (+ gerekiyorsa `FAL_KEY`) ekle ve *Notebook access*'i aç.
 
 ### 5) Telegram 7/24 senkronu (GitHub Actions)
 GitHub repo → *Settings → Secrets and variables → Actions*: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,

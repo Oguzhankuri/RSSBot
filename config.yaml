@@ -9,7 +9,7 @@ feeds:
   - "https://www.euronews.com/rss?format=mrss&level=theme&name=news"   # Euronews
   - "https://www.theguardian.com/world/rss"                            # The Guardian
   - "https://www.politico.eu/feed/"                                    # Politico Europe
-  - "https://feeds.npr.org/1004/rss.xml"                               # NPR
+  # - "https://feeds.npr.org/1004/rss.xml"                             # NPR — 403 veriyor, devre dışı
   - "https://abcnews.go.com/abcnews/internationalheadlines"            # ABC News
   # Tam metin çekilemiyor (paywall/engel) — sadece RSS özeti; kısa özetler min_chars ile elenir
   - "https://www.france24.com/en/rss"                                  # France 24

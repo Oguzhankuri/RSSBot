@@ -20,6 +20,14 @@ DOWNLOAD_TIMEOUT = 60
 SEQUENTIAL_OFFLOAD_BELOW_GB = 30
 
 
+GATED_HELP = (
+    "Hugging Face '{model}' modeline erişim izni yok. 1) huggingface.co/{model} sayfasında giriş yapıp "
+    "'Agree and access repository' de. 2) huggingface.co/settings/tokens → 'Read' token oluştur. "
+    "3) Token'ı HF_TOKEN adıyla Colab Secrets'a (PC'de .env'e) ekle. "
+    "Uğraşmak istemezsen config.yaml → images.provider: \"fal\"."
+)
+
+
 class ImageGenerationError(Exception):
     """Görsel üretimi yapılamadığında (örn. GPU yok) fırlatılır."""
 
@@ -61,7 +69,12 @@ class FluxLocalBackend:
         self._steps = int(icfg.get("steps", 4))
         logger.info("FLUX modeli yükleniyor: %s (ilk seferde indirme uzun sürebilir)", icfg["model_id"])
         dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-        self._pipe = FluxPipeline.from_pretrained(icfg["model_id"], torch_dtype=dtype)
+        try:
+            self._pipe = FluxPipeline.from_pretrained(icfg["model_id"], torch_dtype=dtype)
+        except Exception as exc:  # noqa: BLE001 — huggingface_hub hata sınıfları sürüme göre değişiyor
+            if "gated" in type(exc).__name__.lower() or "401" in str(exc) or "403" in str(exc):
+                raise ImageGenerationError(GATED_HELP.format(model=icfg["model_id"])) from exc
+            raise
         total_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
         if total_gb < SEQUENTIAL_OFFLOAD_BELOW_GB:
             # T4/L4: ~24 GB'lık transformer tek parça sığmaz; katman katman taşınır (yavaş ama çalışır).

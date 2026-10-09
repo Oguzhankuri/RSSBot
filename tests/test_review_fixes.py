@@ -100,3 +100,32 @@ def test_public_ci_logs_hide_response_body(monkeypatch):
     with pytest.raises(RepoError) as info:
         repo.select("ideas", limit=1)
     assert "gizli fikir" not in str(info.value) and "(400)" in str(info.value)
+
+
+def test_gated_model_gives_turkish_help(monkeypatch, base_cfg):
+    import sys
+    import types
+
+    from bulten import images
+
+    class Cuda:
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def is_bf16_supported():
+            return True
+
+    class GatedRepoError(Exception):
+        pass
+
+    class FluxPipeline:
+        @staticmethod
+        def from_pretrained(*a, **k):
+            raise GatedRepoError("401 Client Error. Cannot access gated repo")
+
+    monkeypatch.setitem(sys.modules, "torch", types.SimpleNamespace(cuda=Cuda, bfloat16="bf16", float16="f16"))
+    monkeypatch.setitem(sys.modules, "diffusers", types.SimpleNamespace(FluxPipeline=FluxPipeline))
+    with pytest.raises(images.ImageGenerationError, match="HF_TOKEN"):
+        images.FluxLocalBackend(base_cfg)
