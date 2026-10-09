@@ -191,3 +191,20 @@ def test_setup_db_jwt_and_env_merge(tmp_path):
     env.write_text("# yorum\nDEEPSEEK_API_KEY=abc\nSUPABASE_URL=eski\n", encoding="utf-8")
     mod.set_env_values(env, {"SUPABASE_URL": "yeni", "SUPABASE_SERVICE_KEY": "k"})
     assert env.read_text(encoding="utf-8") == "# yorum\nDEEPSEEK_API_KEY=abc\nSUPABASE_URL=yeni\nSUPABASE_SERVICE_KEY=k\n"
+
+
+def test_setup_db_server_mode(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location("setup_db_srv", Path("docker/setup_db.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(mod, "DOCKER_ENV", tmp_path / "docker.env")
+    mod.setup_server("db.ornek.com")
+    env = mod.read_env(tmp_path / "docker.env")
+    assert env["SITE_ADDRESS"] == "db.ornek.com" and len(env["JWT_SECRET"]) > 40
+    out = capsys.readouterr().out
+    assert "SUPABASE_URL=https://db.ornek.com" in out and "SUPABASE_SERVICE_KEY=ey" in out
+    with pytest.raises(SystemExit):
+        mod.setup_server("http://kotu adres")

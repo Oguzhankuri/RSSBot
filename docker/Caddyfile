@@ -1,6 +1,8 @@
 # Supabase ile aynı yol: https://<adres>/rest/v1/<tablo>
-# Sunucuda ':80' yerine alan adını yaz (ör. db.ornek.com) — Caddy HTTPS sertifikasını kendisi alır.
-:80 {
+# SITE_ADDRESS boşsa :80 (yerel/tünel). Sunucuda docker/.env → SITE_ADDRESS=db.ornek.com yazılır;
+# Caddy Let's Encrypt sertifikasını kendisi alır ve yeniler.
+{$SITE_ADDRESS::80} {
+	encode gzip
 	handle_path /rest/v1/* {
 		reverse_proxy rest:3000
 	}

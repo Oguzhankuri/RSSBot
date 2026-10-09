@@ -1,6 +1,7 @@
 """Self-hosted veritabanı için şifreleri ve anahtarı üretir; hiçbir gizli değeri ekrana yazmaz.
 
-    python docker/setup_db.py
+    python docker/setup_db.py                          # PC (yerel)
+    python3 docker/setup_db.py --server db.alanadin.com  # SUNUCU
 
 - docker/.env           → Postgres/PostgREST şifreleri ve JWT sırrı (yoksa üretilir, varsa korunur)
 - .env (proje kökü)      → SUPABASE_URL ve SUPABASE_SERVICE_KEY (service_role JWT'si)
@@ -73,12 +74,35 @@ def ensure_docker_env() -> dict[str, str]:
     return wanted
 
 
+def service_key_for(jwt_secret: str) -> str:
+    now = int(time.time())
+    return sign_jwt({"role": "service_role", "iss": "rssbot", "iat": now, "exp": now + TEN_YEARS}, jwt_secret)
+
+
+def setup_server(domain: str) -> None:
+    """Sunucu: docker/.env'e alan adını yazar; anahtarı GÜVENLİ aktarım için BİR KEZ gösterir."""
+    if not re.fullmatch(r"[a-z0-9.-]+\.[a-z]{2,}", domain):
+        raise SystemExit(f"Geçersiz alan adı: {domain!r} (ör. db.ornek.com)")
+    values = ensure_docker_env()
+    set_env_values(DOCKER_ENV, {"SITE_ADDRESS": domain})
+    print("✅ docker/.env hazır (şifreler üretildi/korundu), SITE_ADDRESS =", domain)
+    print()
+    print("Aşağıdaki iki değeri proje sahibine GÜVENLİ yoldan ilet (şifre yöneticisi / tek seferlik not).")
+    print("Repoya, issue'ya, sohbet grubuna YAPIŞTIRMA. Ekranı temizle: clear")
+    print(f"SUPABASE_URL=https://{domain}")
+    print(f"SUPABASE_SERVICE_KEY={service_key_for(values['JWT_SECRET'])}")
+    print()
+    print("Sıradaki: docker compose -f docker/docker-compose.yml -f docker/docker-compose.server.yml up -d")
+
+
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows konsolu
+    if len(sys.argv) == 3 and sys.argv[1] == "--server":
+        setup_server(sys.argv[2].strip().lower())
+        return
     values = ensure_docker_env()
-    now = int(time.time())
-    service_key = sign_jwt({"role": "service_role", "iss": "rssbot", "iat": now, "exp": now + TEN_YEARS}, values["JWT_SECRET"])
+    service_key = service_key_for(values["JWT_SECRET"])
     set_env_values(PROJECT_ENV, {"SUPABASE_URL": f"http://127.0.0.1:{values['GATEWAY_PORT']}", "SUPABASE_SERVICE_KEY": service_key})
 
     text = CONFIG.read_text(encoding="utf-8")
