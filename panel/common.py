@@ -20,6 +20,7 @@ from bulten.config import ConfigError, load_config  # noqa: E402
 from bulten.db import RepoError, create_repo  # noqa: E402
 
 CONFIG_PATH = str(ROOT / "config.yaml")
+ENV_PATH = ROOT / ".env"
 
 
 @st.cache_resource(show_spinner=False)

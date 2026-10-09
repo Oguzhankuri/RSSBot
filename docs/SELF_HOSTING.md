@@ -124,6 +124,9 @@ EOF
 ```
 
 ### 3.5 Uygulama anahtarları ve panel şifresi
+> 💡 Panel bir kez açıldıktan sonra bu anahtarlar ve şifre **⚙️ Ayarlar → 🔑 Anahtarlar / 🔒 Panel şifresi** bölümünden
+> de güncellenebilir (değerler ekranda asla tam gösterilmez). İlk kurulumda en az panel şifresi terminalden belirlenmelidir.
+
 Proje kökündeki `.env`'e uygulama anahtarlarını **proje sahibi** girer (sunucuya SSH ile ya da kurulumu yapan kişi
 güvenli yoldan alıp girer):
 ```bash

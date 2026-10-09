@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import os
 import secrets
 import sys
 import threading
@@ -105,15 +106,35 @@ class Throttle:
 THROTTLE = Throttle()
 
 
-def _set_env(path: Path, values: dict[str, str]) -> None:
-    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
-    remaining = dict(values)
-    out = []
-    for line in lines:
-        key = line.split("=", 1)[0].strip()
-        out.append(f"{key}={remaining.pop(key)}" if key in remaining else line)
-    out += [f"{k}={v}" for k, v in remaining.items()]
-    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+PASSWORD_KEYS = {"PANEL_PASSWORD_HASH", "PANEL_SESSION_SECRET"}
+
+
+class PasswordError(ValueError):
+    pass
+
+
+def set_password(env_path: Path, new_password: str) -> None:
+    """Yeni şifrenin özetini ve yeni oturum sırrını yazar → tüm eski oturumlar düşer."""
+    from bulten import envfile
+
+    if len(new_password) < MIN_PASSWORD_LEN:
+        raise PasswordError(f"Şifre en az {MIN_PASSWORD_LEN} karakter olmalı.")
+    envfile.update(
+        env_path,
+        {"PANEL_PASSWORD_HASH": hash_password(new_password), "PANEL_SESSION_SECRET": secrets.token_urlsafe(32)},
+        allow=PASSWORD_KEYS,
+    )
+
+
+def change_password(env_path: Path, current: str, new: str, repeat: str) -> None:
+    """Panelden şifre değişimi: mevcut şifre doğrulanmadan hiçbir şey yazılmaz."""
+    stored = os.getenv("PANEL_PASSWORD_HASH", "").strip()
+    if stored and not verify_password(current, stored):
+        THROTTLE.record_failure()
+        raise PasswordError("Mevcut şifre yanlış.")
+    if new != repeat:
+        raise PasswordError("Yeni şifreler uyuşmuyor.")
+    set_password(env_path, new)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -125,13 +146,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     env_path = Path(args[args.index("--env") + 1]) if "--env" in args else Path(".env")
     password = getpass("Yeni panel şifresi: ")
-    if len(password) < MIN_PASSWORD_LEN:
-        print(f"Şifre en az {MIN_PASSWORD_LEN} karakter olmalı.")
-        return 1
     if getpass("Tekrar: ") != password:
         print("Şifreler uyuşmuyor.")
         return 1
-    _set_env(env_path, {"PANEL_PASSWORD_HASH": hash_password(password), "PANEL_SESSION_SECRET": secrets.token_urlsafe(32)})
+    try:
+        set_password(env_path, password)
+    except PasswordError as exc:
+        print(exc)
+        return 1
     print(f"✅ Şifre özeti {env_path} dosyasına yazıldı. Eski oturumlar geçersiz. Paneli yeniden başlat.")
     return 0
 

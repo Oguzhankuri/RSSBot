@@ -41,7 +41,15 @@ def test_throttle_backoff():
     assert t.wait_seconds(now=0) == 0
 
 
+def _isolate_env(monkeypatch):
+    # envfile.update os.environ'u da günceller; test bitince eski hâline dönsün.
+    for key in ("PANEL_PASSWORD_HASH", "PANEL_SESSION_SECRET", "DEEPSEEK_API_KEY", "TELEGRAM_ALLOWED_USER_ID"):
+        monkeypatch.setenv(key, "gecici")
+        monkeypatch.delenv(key)
+
+
 def test_set_password_cli(tmp_path, monkeypatch):
+    _isolate_env(monkeypatch)
     env = tmp_path / ".env"
     env.write_text("DEEPSEEK_API_KEY=abc\n", encoding="utf-8")
     answers = iter([PASSWORD, PASSWORD])

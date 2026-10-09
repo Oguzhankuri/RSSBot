@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 
+import common
+import env_editor
 import streamlit as st
 import yaml
 from common import boot, reload_config
@@ -28,6 +30,9 @@ st.markdown(f"🔗 Colab: {ps.colab_url(cfg)}")
 st.markdown(f"📁 Çıktı klasörü: `{cfg['output']['base_dir']}`")
 if cfg["db"]["provider"] == "sqlite":
     st.warning("Veritabanı yerel (SQLite). Telegram ve Colab'ın aynı veriyi görmesi için Supabase'e geç (README).")
+
+env_editor.render_keys(common.ENV_PATH, on_saved=reload_config)
+env_editor.render_password(common.ENV_PATH)
 
 if ps.uses_local_db(cfg):
     st.subheader("🌐 Colab tüneli")

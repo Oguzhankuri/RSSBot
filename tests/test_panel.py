@@ -54,7 +54,11 @@ def panel_env(monkeypatch, tmp_path, base_cfg):
            "brain": {"enabled": True, "candidate_pool": 30, "repeat_days": 30, "repeat_threshold": 0.8},
            "env": {"DEEPSEEK_API_KEY": None, "TELEGRAM_BOT_TOKEN": None}}
     repo = SqliteRepo()
-    monkeypatch.setattr(common, "_load", lambda: (cfg, repo))
+    def fake_load():
+        return cfg, repo
+
+    fake_load.clear = lambda: None  # st.cache_resource arayüzü
+    monkeypatch.setattr(common, "_load", fake_load)
     started = []
     monkeypatch.setattr(ps, "start_background", lambda cmd, cwd=None: started.append(cmd))
     return AppTest, cfg, repo, started
