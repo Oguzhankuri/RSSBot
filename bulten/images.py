@@ -28,6 +28,12 @@ class ImageBackend(Protocol):
     def generate(self, prompt: str) -> Image.Image: ...
 
 
+def configure_size(backend: Any, width: int, height: int) -> None:
+    """Aynı model (yükleme maliyeti yüksek) yatay ve dikey formatta yeniden kullanılır."""
+    if hasattr(backend, "set_size"):
+        backend.set_size(width, height)
+
+
 def build_prompt(prompt: str, style: str) -> str:
     parts = [prompt.strip().rstrip("."), style.strip(), SAFETY_SUFFIX]
     return ", ".join(p for p in parts if p)
@@ -67,6 +73,9 @@ class FluxLocalBackend:
         else:
             self._pipe.to("cuda")
 
+    def set_size(self, width: int, height: int) -> None:
+        self._width, self._height = int(width), int(height)
+
     def generate(self, prompt: str) -> Image.Image:
         result = self._pipe(
             prompt,
@@ -94,6 +103,9 @@ class FalBackend:
         self._model = icfg.get("fal_model", "fal-ai/flux/schnell")
         self._size = {"width": int(icfg["width"]), "height": int(icfg["height"])}
         self._steps = int(icfg.get("steps", 4))
+
+    def set_size(self, width: int, height: int) -> None:
+        self._size = {"width": int(width), "height": int(height)}
 
     def generate(self, prompt: str) -> Image.Image:
         result = self._fal.subscribe(

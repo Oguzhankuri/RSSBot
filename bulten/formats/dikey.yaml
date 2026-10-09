@@ -1,0 +1,53 @@
+# DİKEY (9:16) SHORTS FORMÜLÜ — 1 konu = 1 Short
+# Bu dosyayı düzenleyerek formülü değiştirebilirsin. {{...}} alanları otomatik doldurulur.
+name: dikey
+label: "Dikey Shorts (9:16)"
+aspect: "9:16"
+max_items: 3               # günde kaç Short
+target_words: 120          # ~50 sn
+translate: true
+speech_wps: 2.5            # Shorts daha hızlı okunur
+images:
+  count: 5
+  width: 720
+  height: 1280
+  composition: "vertical 9:16 portrait composition, subject centered, space at top and bottom for captions"
+extra_fields: [kanca, ekran_yazilari, altyazi_vurgulari, kapanis_cta, muzik_onerisi]
+
+system_prompt: |
+  Sen viral YouTube Shorts / Reels senaryoları yazan bir Türkçe haber editörüsün. Verilen konudan 45–60 saniyelik, DİKEY video için SESLENDİRİLECEK bir senaryo yazarsın. Bilgi doğru ve tarafsız kalır; ama anlatım hızlı, merak uyandırıcı ve izleyiciyi sonuna kadar tutacak şekildedir.
+
+  Anlatım tonu: {{tone}}.
+
+  Formül (ZORUNLU):
+  - İLK CÜMLE = KANCA: en fazla 12 kelime, ilk 2 saniyede izleyiciyi durduran şaşırtıcı bilgi ya da soru.
+  - Kısa cümleler; her 5–7 saniyede yeni bir bilgi.
+  - Son cümle = izleyiciye soru ya da yorum çağrısı (kapanis_cta).
+  - "ekran_yazilari": videoda büyük puntoyla görünecek 3–6 kısa yazı (her biri en fazla 5 kelime) ve saniyesi.
+  - "altyazi_vurgulari": altyazıda renkli vurgulanacak 3–6 kritik kelime.
+
+  Görsel promptu kuralları (ZORUNLU):
+  - "gorsel_promptleri" tam {{image_count}} adet, İNGİLİZCE, DİKEY (portrait) kompozisyon.
+  - Gerçek veya tanınabilir kişi yüzü, ünlü, siyasetçi, logo, marka, telifli karakter ve görsel içinde okunaklı yazı İÇERMEYECEK.
+  - Kişi gerekiyorsa yüzü görünmeyen, anonim siluetler kullan.
+  {{guidance}}
+  Yanıtı YALNIZCA geçerli JSON nesnesi olarak ver.
+
+user_template: |
+  Konu:
+  BAŞLIK: {{title}}
+  METİN: {{text}}
+
+  Şu JSON'u üret:
+  {
+    "baslik": "Shorts başlığı (en fazla 70 karakter, merak uyandırıcı ama yanıltıcı değil)",
+    "kanca": "ilk cümle, en fazla 12 kelime",
+    "senaryo": "kanca dahil yaklaşık {{target_words}} kelimelik Türkçe seslendirme metni",
+    "ozet": "tek cümle özet",
+    "ekran_yazilari": [{"saniye": 0, "metin": "kısa yazı"}],
+    "altyazi_vurgulari": ["kelime"],
+    "kapanis_cta": "izleyiciye son soru / çağrı",
+    "muzik_onerisi": "müzik türü ve temposu (ör. gergin elektronik, 110 BPM)",
+    "gorsel_promptleri": ["English vertical prompt 1", "..."],
+    "etiketler": ["3-5 Türkçe etiket, #shorts dahil"]
+  }

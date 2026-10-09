@@ -9,3 +9,7 @@ output/*
 !output/.gitkeep
 state/seen.json
 refs/*.wav
+secrets/
+token.json
+state/bulten.db
+output/*/_islem_gunlugu.log

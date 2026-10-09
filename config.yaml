@@ -60,3 +60,30 @@ voice:
 output:
   base_dir: "output"
   # Colab'da Drive'a yazmak için: "/content/drive/MyDrive/gunluk-bulten/output"
+
+# ======================= v2: Stüdyo ayarları =======================
+
+db:
+  # sqlite   → sadece bu bilgisayar (kurulum gerektirmez; Telegram/Colab göremez)
+  # supabase → bulut; PC + Colab + Telegram aynı veriyi görür (.env: SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  provider: "sqlite"
+  sqlite_path: "state/bulten.db"
+
+formats:
+  enabled: ["yatay", "dikey"]   # formüller: bulten/formats/yatay.yaml, dikey.yaml (panel → Ayarlar)
+  overrides:
+    yatay: {max_items: 8}
+    dikey: {max_items: 3}      # günde kaç Short
+
+brain:
+  enabled: true
+  candidate_pool: 30         # planlayıcıya gösterilen aday haber sayısı
+  repeat_days: 30            # son kaç günde işlenen konu tekrar edilmesin
+  repeat_threshold: 0.8      # 0–1, başlık benzerliği bunun üstündeyse "aynı konu" sayılır
+
+colab:
+  notebook_url: "https://colab.research.google.com/github/Oguzhankuri/RSSBot/blob/main/gunluk_bulten_colab.ipynb"
+
+youtube:
+  client_secret: "secrets/client_secret.json"
+  token_path: "secrets/youtube_token.json"

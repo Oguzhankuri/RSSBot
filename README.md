@@ -1,4 +1,127 @@
-# 📰 Günlük Bülten
+# 📰 Günlük Bülten Stüdyosu (v2)
+
+**Tek tıkla** günlük haber içeriği: RSS gündemi + senin fikirlerin + kanalın geçmiş performansı harmanlanır,
+**yatay (16:9) bülten** ve **dikey (9:16) Shorts** için ayrı formüllerle senaryo, çeviri, görsel ve klon ses üretilir,
+grafikçilerin montajlayacağı düzenli bir paket çıkar. Sistem yayınlanan videoların performansından **kendi kurallarını öğrenir**.
+
+```
+ Telefon ──Telegram──┐                 ┌── Colab (GPU): görseller + klon sesler
+                     ▼                 │
+             Veritabanı (Supabase) ◄───┤
+                     ▲                 │
+ PC: BASLAT.bat → Panel ┘              └── Google Drive: output/ (PC + Colab + grafikçiler)
+```
+
+## 🚀 Günlük kullanım
+
+1. **`BASLAT.bat`**'a çift tıkla → tarayıcıda panel açılır → **▶️ Bugünü Başlat**.
+2. Panel ne zaman ne yapacağını söyler:
+   - **"🚀 Sıra Colab'da — git orayı hallet!"** → *Colab'ı aç* butonu → tek hücreyi ▶ çalıştır.
+   - **"🎙️ Sıra sende: TR ses kaydı"** → panelde senaryoları oku, `tr.wav` kayıtlarını panele bırak.
+   - **"Yayın + YouTube linkleri"** → videolar yayınlanınca linkleri *İçerikler* sayfasına yapıştır.
+3. Grafikçiler `output/<tarih>/TESLIM.md` ve her klasördeki `MONTAJ_NOTU.md` ile çalışır.
+
+| Adım | Nerede | Ne olur |
+|---|---|---|
+| 1. Planla (Beyin) | PC | Gündem + fikir kutusu + hafıza → yatay ve dikey için konu seçimi |
+| 2. Senaryolar | PC | Formata özel senaryolar + 4 dile çeviri (DeepSeek) |
+| 3. Görseller | Colab (ya da `fal` ile PC) | Yatay 1280×720 ×3, dikey 720×1280 ×5 |
+| 4. Klon sesler | Colab | 4 dilde senin sesinle (Chatterbox) |
+| 5. TR ses kaydı | Sen | Panelden yükle ya da `ses/tr.wav` olarak kaydet |
+| 6. Grafikçi paketi | PC | `MONTAJ_NOTU.md` (sahne akışı, süreler, ekran yazıları) + `TESLIM.md` |
+| 7. Yayın | Sen | YouTube linkleri → metrikler → beyin öğrenir |
+
+### Çıktı yapısı
+
+```
+output/2026-10-09/
+├── TESLIM.md                      # grafikçiler için günün özeti + eksik dosya uyarıları
+├── yatay/01-<slug>/  senaryo_tr.md, MONTAJ_NOTU.md, metadata.json, ceviriler/, gorseller/, ses/
+└── dikey/01-<slug>/  + ekran_yazilari.json (zamanlı ekran yazıları), kanca, CTA, müzik önerisi
+```
+
+## 💡 Fikir Kutusu
+
+- **Panelden:** *Fikir Kutusu* sayfası.
+- **Telefondan:** Telegram botuna ne yazarsan fikir olarak kaydedilir. Başına `!` koyarsan acil (öncelik 5).
+  Komutlar: `/liste`, `/oncelik <kod> <1-5>`, `/sil <kod>` (arşivler, silmez).
+- PC kapalıyken bile GitHub Actions 15 dakikada bir mesajları veritabanına aktarır. Fikir **önce kaydedilir**, AI etiketleme sonra gelir; hiçbir fikir kaybolmaz.
+- Planlayıcı her gün açık fikirleri gündemle harmanlar (özellikle dikey Shorts için); kullanılan fikir "kullanıldı" olur.
+
+## 🧠 Beyin (kendi kendine öğrenme)
+
+Model fine-tune **edilmez**; şeffaf bir hafıza + geri bildirim döngüsü vardır:
+
+1. **Hafıza:** son 30 günde işlenen konular tekrar seçilmez; en iyi giden içerikler örnek olarak prompt'a eklenir.
+2. **Ölçüm:** YouTube Analytics'ten izlenme, izlenme yüzdesi, beğeni… + senin 1–5 yıldız puanların.
+3. **Öğren:** *Beyin* sayfasında **🧠 Öğren** → DeepSeek performans verisinden kurallar çıkarır
+   (ör. "Dikeyde kancayı soru cümlesiyle kur"). Kurallar her yeni senaryo prompt'una eklenir.
+4. Kuralları onaylayabilir, kapatabilir ya da kendin yazabilirsin. Onaylı kurallar asla otomatik silinmez.
+
+## ✍️ Formüller
+
+`bulten/formats/yatay.yaml` ve `dikey.yaml` (panel → *Ayarlar*'dan da düzenlenir): prompt şablonları, haber sayısı,
+görsel boyutu/adedi, kelime hedefi. `config.yaml → formats.overrides` ile tek tek alan ezilebilir.
+
+---
+
+## 🔧 Bir kerelik kurulum
+
+### 1) `.env` (proje kökünde, git'e girmez)
+
+```
+DEEPSEEK_API_KEY=sk-...            # zorunlu
+FAL_KEY=...                        # sadece images.provider=fal ise
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_KEY=...           # Supabase → Project Settings → API → service_role (GİZLİ tut!)
+TELEGRAM_BOT_TOKEN=...             # @BotFather → /newbot
+TELEGRAM_ALLOWED_USER_ID=...       # @userinfobot'a yaz, verdiği sayı. Bot sadece sana cevap verir.
+```
+
+### 2) Supabase (ücretsiz) — PC, Colab ve Telegram aynı veriyi görsün
+1. [supabase.com](https://supabase.com) → yeni proje.
+2. **SQL Editor** → `db/migrations/001_init.sql` içeriğini yapıştır → **Run**.
+3. `config.yaml → db.provider: "supabase"` yap.
+
+> Supabase kurmadan da çalışır (`provider: "sqlite"`), ama o zaman Telegram ve Colab veritabanını göremez.
+
+### 3) Google Drive
+PC'ye **Google Drive for Desktop** kur ve `config.yaml → output.base_dir` değerini Drive'daki
+`gunluk-bulten/output` klasörüne yönlendir (ör. `"G:/My Drive/gunluk-bulten/output"`).
+Colab aynı klasöre yazar; grafikçilerle bu klasörü paylaş.
+Referans sesini `MyDrive/gunluk-bulten/refs/ref_voice.wav` olarak koy (10–20 sn temiz konuşma).
+
+### 4) Colab
+Notebook'u aç (panelde *Colab'ı aç*), **Runtime → T4 GPU**, soldaki 🔑 **Secrets**'a
+`SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (+ gerekiyorsa `FAL_KEY`) ekle ve *Notebook access*'i aç.
+
+### 5) Telegram 7/24 senkronu (GitHub Actions)
+GitHub repo → *Settings → Secrets and variables → Actions*: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_ID` (+ opsiyonel `DEEPSEEK_API_KEY`).
+`.github/workflows/telegram_sync.yml` 15 dakikada bir çalışır.
+
+### 6) YouTube ölçümü (opsiyonel, öğrenme için)
+1. Google Cloud Console → yeni proje → **YouTube Data API v3** ve **YouTube Analytics API**'yi etkinleştir.
+2. *OAuth consent screen* (External, kendini test kullanıcısı ekle) → *Credentials → OAuth client ID → Desktop app* → JSON'u indir.
+3. Dosyayı `secrets/client_secret.json` olarak kaydet → `python -m bulten.youtube auth` (bir kez, tarayıcıda onay).
+4. Panel → *Beyin* → **📊 YouTube metriklerini çek**.
+
+### Komut satırı (panel olmadan)
+
+```bash
+python -m bulten.pipeline advance        # PC adımlarını çalıştır
+python -m bulten.pipeline status         # sıra kimde?
+python -m bulten.pipeline gpu --only images --date latest   # Colab'da
+python -m bulten.telegram_sync           # Telegram'ı elle çek
+python -m bulten.youtube sync            # metrikleri çek
+```
+
+Eski iki fazlı akış (`run_text.py`, `run_voice.py`) hâlâ çalışır.
+
+---
+
+# v1 dokümantasyonu (referans)
+
 
 Bir haber sitesinin RSS'inden günde **8 haber** çekip her biri için:
 

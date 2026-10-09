@@ -87,13 +87,12 @@ def collect_entries(feeds: list[str], reader: Callable[[str], list[dict]] = _rea
     return entries
 
 
-def fetch_feed_items(
+def fetch_candidates(
     cfg: dict[str, Any],
     seen: set[str] | None = None,
     reader: Callable[[str], list[dict]] = _read_feed,
-    text_fetcher: Callable[[str], str | None] = fetch_full_text,
 ) -> list[dict[str, Any]]:
-    """Feed'lerden işlenmeye hazır en yeni haberleri döndürür."""
+    """Tüm feed'lerden tekil, daha önce işlenmemiş, en yeniden eskiye aday listesi (tam metin YOK)."""
     icfg = cfg["ingest"]
     entries = collect_entries([str(f) for f in cfg["feeds"] if f], reader)
 
@@ -107,15 +106,24 @@ def fetch_feed_items(
         before = len(candidates)
         candidates = [e for e in candidates if e["id"] not in seen_ids]
         logger.info("Tekrar engeli: %d haber daha önce işlenmiş, atlandı.", before - len(candidates))
+    return candidates
 
-    max_items = int(icfg.get("max_items", 8))
+
+def hydrate(
+    candidates: list[dict[str, Any]],
+    cfg: dict[str, Any],
+    limit: int,
+    text_fetcher: Callable[[str], str | None] = fetch_full_text,
+) -> list[dict[str, Any]]:
+    """Sıradaki adaylara tam metin ekler; çok kısa olanları eler, `limit` kadar haber döndürür."""
+    icfg = cfg["ingest"]
     min_chars = int(icfg.get("min_chars", 200))
     items: list[dict[str, Any]] = []
     for e in candidates:
-        if len(items) >= max_items:
+        if len(items) >= limit:
             break
-        text = text_fetcher(e["link"]) if icfg.get("fetch_full_text", True) else None
-        text = text or e["summary"]
+        text = e.get("text") or (text_fetcher(e["link"]) if icfg.get("fetch_full_text", True) else None)
+        text = text or e.get("summary", "")
         if len(text) < min_chars:
             logger.info("Çok kısa (%d karakter), elendi: %s", len(text), e["title"])
             continue
@@ -124,10 +132,23 @@ def fetch_feed_items(
                 "id": e["id"],
                 "title": e["title"],
                 "link": e["link"],
-                "published": e["published"],
-                "summary": e["summary"],
+                "published": e.get("published", ""),
+                "summary": e.get("summary", ""),
                 "text": text,
+                **{k: e[k] for k in ("idea_id", "aci") if e.get(k)},
             }
         )
+    return items
+
+
+def fetch_feed_items(
+    cfg: dict[str, Any],
+    seen: set[str] | None = None,
+    reader: Callable[[str], list[dict]] = _read_feed,
+    text_fetcher: Callable[[str], str | None] = fetch_full_text,
+) -> list[dict[str, Any]]:
+    """Feed'lerden işlenmeye hazır en yeni haberleri döndürür."""
+    candidates = fetch_candidates(cfg, seen, reader)
+    items = hydrate(candidates, cfg, int(cfg["ingest"].get("max_items", 8)), text_fetcher)
     logger.info("İşlenecek haber sayısı: %d", len(items))
     return items

@@ -1,0 +1,8 @@
+# Panel yalnızca bu bilgisayardan açılabilir (aynı Wi-Fi'daki başkaları erişemez).
+[server]
+address = "127.0.0.1"
+enableXsrfProtection = true
+maxUploadSize = 200
+
+[browser]
+gatherUsageStats = false

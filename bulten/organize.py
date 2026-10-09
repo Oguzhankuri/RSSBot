@@ -29,6 +29,25 @@ def day_dir(date_str: str, cfg: dict[str, Any]) -> Path:
     return Path(cfg["output"]["base_dir"]) / date_str
 
 
+def format_dir(date_str: str, fmt: str, cfg: dict[str, Any]) -> Path:
+    """v2 düzeni: output/<tarih>/<yatay|dikey>/NN-<slug>/"""
+    return day_dir(date_str, cfg) / fmt
+
+
+def relative_folder(path: Path, cfg: dict[str, Any]) -> str:
+    """DB'de saklanan yol: PC ve Colab'da farklı olan output kökünden bağımsız."""
+    return Path(path).resolve().relative_to(Path(cfg["output"]["base_dir"]).resolve()).as_posix()
+
+
+def absolute_folder(rel: str, cfg: dict[str, Any]) -> Path:
+    """DB'den gelen göreli yolu output kökü altına çözer; kök dışına çıkan yolu reddeder."""
+    base = Path(cfg["output"]["base_dir"])
+    target = base / rel
+    if not target.resolve().is_relative_to(base.resolve()):
+        raise ValueError(f"Geçersiz içerik klasörü (output dışına çıkıyor): {rel!r}")
+    return target
+
+
 def build_day_dirs(date_str: str, items: list[dict[str, Any]], cfg: dict[str, Any]) -> list[Path]:
     """output/<date>/NN-<slug>/{ceviriler,gorseller,ses} ağacını kurar."""
     root = ensure_dir(day_dir(date_str, cfg))
@@ -41,8 +60,15 @@ def build_day_dirs(date_str: str, items: list[dict[str, Any]], cfg: dict[str, An
     return dirs
 
 
+EXTRA_META_KEYS = ("kanca", "ekran_yazilari", "altyazi_vurgulari", "kapanis_cta", "muzik_onerisi")
+
+
 def render_script_md(data: dict[str, Any]) -> str:
-    return f"# {data['baslik']}\n\nKaynak: {data['link']}\n\n{data['senaryo']}\n"
+    source = data.get("link") or "(kendi fikrin)"
+    head = f"# {data['baslik']}\n\nKaynak: {source}\n\n"
+    hook = f"**KANCA (ilk 2 sn):** {data['kanca']}\n\n" if data.get("kanca") else ""
+    cta = f"\n**KAPANIŞ:** {data['kapanis_cta']}\n" if data.get("kapanis_cta") else ""
+    return f"{head}{hook}{data['senaryo']}\n{cta}"
 
 
 def save_item(item_dir: str | Path, data: dict[str, Any]) -> None:
@@ -53,18 +79,25 @@ def save_item(item_dir: str | Path, data: dict[str, Any]) -> None:
         write_text(d / "ceviriler" / f"{lang}.md", text.strip() + "\n")
     ensure_dir(d / "gorseller")
     write_text(d / "ses" / "OKU_BENI.txt", TR_VOICE_NOTE)
+    if data.get("ekran_yazilari"):
+        write_json(d / "ekran_yazilari.json", data["ekran_yazilari"])
     metadata = {
+        "format": data.get("format", "yatay"),
         "baslik": data["baslik"],
         "kaynak_baslik": data.get("title"),
-        "kaynak_url": data["link"],
+        "kaynak_url": data.get("link", ""),
         "yayin_tarihi": data.get("published"),
         "islenme_zamani": datetime.now().isoformat(timespec="seconds"),
         "ozet": data.get("ozet", ""),
+        "senaryo": data.get("senaryo", ""),
         "etiketler": data.get("etiketler", []),
         "gorsel_promptleri": data.get("gorsel_promptleri", []),
         "gorseller": [Path(p).name for p in data.get("gorseller", [])],
         "ceviri_dilleri": sorted((data.get("ceviriler") or {}).keys()),
         "hatalar": data.get("hatalar", []),
+        **{k: data[k] for k in EXTRA_META_KEYS if k in data},
+        **({"content_id": data["content_id"]} if data.get("content_id") else {}),
+        **({"idea_id": data["idea_id"]} if data.get("idea_id") else {}),
     }
     write_json(d / "metadata.json", metadata)
 
@@ -91,10 +124,14 @@ def unique_dir(path: Path) -> Path:
 
 def write_day_index(date_str: str, cfg: dict[str, Any]) -> tuple[Path, Path]:
     """Gün klasöründeki TÜM haberlerin metadata'sından bulten.md ve manifest.json yazar."""
-    root = day_dir(date_str, cfg)
+    return write_index(day_dir(date_str, cfg), date_str, cfg)
+
+
+def write_index(root: Path, date_str: str, cfg: dict[str, Any], label: str = "Günlük Bülten") -> tuple[Path, Path]:
+    """Verilen klasördeki (gün ya da gün/format) haberlerden bulten.md + manifest.json yazar."""
     site = (cfg.get("site") or {}).get("name", "Günlük Bülten")
     dirs = existing_item_dirs(root)
-    lines = [f"# {site} — Günlük Bülten {date_str}", "", f"Toplam haber: {len(dirs)}", ""]
+    lines = [f"# {site} — {label} {date_str}", "", f"Toplam haber: {len(dirs)}", ""]
     entries = []
     for idx, d in enumerate(dirs, start=1):
         meta = read_json(d / "metadata.json", default={}) or {}

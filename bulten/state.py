@@ -38,3 +38,33 @@ def mark_seen(urls: list[str], path: str | Path = DEFAULT_SEEN_PATH) -> set[str]
     write_json(path, sorted(updated))
     logger.info("%d haber kimliği kaydedildi (toplam %d).", len(urls), len(updated))
     return updated
+
+
+# --- v2: veritabanı tabanlı tekrar engeli ---
+
+LEGACY_IMPORT_FLAG = "legacy_seen_imported"
+
+
+def import_legacy_seen(repo: Any, path: str | Path = DEFAULT_SEEN_PATH) -> int:
+    """Eski state/seen.json kayıtlarını bir kez veritabanına taşır; aktarılan sayıyı döndürür."""
+    from bulten.db import kv_get, kv_set
+
+    if kv_get(repo, LEGACY_IMPORT_FLAG, False):
+        return 0
+    ids = sorted(load_seen(path))
+    for seen_id in ids:
+        repo.upsert("seen_items", {"id": seen_id})
+    kv_set(repo, LEGACY_IMPORT_FLAG, True)
+    if ids:
+        logger.info("%d eski haber kimliği veritabanına taşındı.", len(ids))
+    return len(ids)
+
+
+def load_seen_db(repo: Any) -> set[str]:
+    return {row["id"] for row in repo.select("seen_items")}
+
+
+def mark_seen_db(repo: Any, ids: list[str]) -> None:
+    for seen_id in ids:
+        if seen_id:
+            repo.upsert("seen_items", {"id": seen_id})

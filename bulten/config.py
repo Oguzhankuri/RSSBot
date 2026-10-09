@@ -35,6 +35,7 @@ def load_config(
     env_path: str | Path | None = None,
     require_text: bool = False,
     require_voice: bool = False,
+    require_db: bool = False,
 ) -> dict[str, Any]:
     """YAML'ı okur, .env'i yükler, doğrular ve birleşik sözlük döndürür."""
     config_path = Path(path)
@@ -49,15 +50,57 @@ def load_config(
         raise ConfigError("config.yaml bir sözlük (anahtar: değer) yapısı olmalı.")
 
     _validate(raw, require_text=require_text, require_voice=require_voice)
+    merged = _with_defaults(raw)
+    db_override = get_env("BULTEN_DB_PROVIDER")  # GitHub Actions / Colab her zaman bulut DB kullanır
+    if db_override:
+        merged = {**merged, "db": {**merged["db"], "provider": db_override}}
+    _validate_extras(merged)
 
+    uses_supabase = merged["db"]["provider"] == "supabase"
     env = {
         "DEEPSEEK_API_KEY": get_env("DEEPSEEK_API_KEY", required=require_text),
         "FAL_KEY": get_env(
             "FAL_KEY",
             required=require_text and raw["images"]["provider"] == "fal",
         ),
+        "SUPABASE_URL": get_env("SUPABASE_URL", required=require_db and uses_supabase),
+        "SUPABASE_SERVICE_KEY": get_env("SUPABASE_SERVICE_KEY", required=require_db and uses_supabase),
+        "TELEGRAM_BOT_TOKEN": get_env("TELEGRAM_BOT_TOKEN"),
+        "TELEGRAM_ALLOWED_USER_ID": get_env("TELEGRAM_ALLOWED_USER_ID"),
     }
-    return {**raw, "env": env}
+    # Colab ile PC'nin output klasörü farklı yolda (Drive) olabilir.
+    output_override = get_env("BULTEN_OUTPUT_DIR")
+    if output_override:
+        merged = {**merged, "output": {**merged["output"], "base_dir": output_override}}
+    return {**merged, "env": env}
+
+
+OPTIONAL_DEFAULTS: dict[str, dict[str, Any]] = {
+    "db": {"provider": "sqlite", "sqlite_path": "state/bulten.db"},
+    "formats": {"enabled": ["yatay", "dikey"], "overrides": {}},
+    "brain": {"enabled": True, "candidate_pool": 30, "repeat_days": 30, "repeat_threshold": 0.8},
+    "colab": {"notebook_url": ""},
+    "telegram": {"enabled": False},
+    "youtube": {
+        "client_secret": "secrets/client_secret.json",
+        "token_path": "secrets/youtube_token.json",
+    },
+}
+VALID_DB_PROVIDERS = ("sqlite", "supabase")
+
+
+def _with_defaults(raw: dict[str, Any]) -> dict[str, Any]:
+    """Yeni (v2) bölümler config.yaml'da yoksa varsayılanlarla doldurulur; eski dosyalar bozulmaz."""
+    extras = {key: {**defaults, **(raw.get(key) or {})} for key, defaults in OPTIONAL_DEFAULTS.items()}
+    return {**raw, **extras}
+
+
+def _validate_extras(cfg: dict[str, Any]) -> None:
+    if cfg["db"]["provider"] not in VALID_DB_PROVIDERS:
+        raise ConfigError(f"'db.provider' geçersiz: {cfg['db']['provider']!r}. Seçenekler: {VALID_DB_PROVIDERS}")
+    enabled = cfg["formats"].get("enabled") or []
+    if not isinstance(enabled, list) or not enabled:
+        raise ConfigError("'formats.enabled' en az bir format içermeli (yatay, dikey).")
 
 
 def _validate(cfg: dict[str, Any], require_text: bool, require_voice: bool) -> None:

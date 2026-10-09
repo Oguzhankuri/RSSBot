@@ -9,3 +9,7 @@ soundfile
 numpy
 tzdata
 fal-client
+# v2 — panel, YouTube ölçüm
+streamlit>=1.40
+google-api-python-client
+google-auth-oauthlib

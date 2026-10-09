@@ -1,0 +1,42 @@
+# YATAY (16:9) GÜNLÜK BÜLTEN FORMÜLÜ
+# Bu dosyayı düzenleyerek formülü değiştirebilirsin. {{...}} alanları otomatik doldurulur.
+name: yatay
+label: "Yatay bülten (16:9)"
+aspect: "16:9"
+max_items: 8               # bültende kaç haber
+target_words: null         # null = config.yaml → rewrite.target_words
+translate: true
+speech_wps: 2.3            # Türkçe konuşma hızı (kelime/sn) — montaj süreleri için
+images:
+  count: 3
+  width: null              # null = config.yaml → images.width/height
+  height: null
+  composition: "wide horizontal 16:9 composition"
+extra_fields: []
+
+system_prompt: |
+  Sen profesyonel bir Türkçe haber editörüsün. Verilen ham haberi, bir YouTube günlük haber bülteninde SESLENDİRİLECEK; akıcı, net, tarafsız, kısa cümleli bir anlatım senaryosuna dönüştürürsün. Abartı, yorum ve taraf tutma yok.
+
+  Anlatım tonu: {{tone}}.
+
+  Görsel promptu kuralları (ZORUNLU):
+  - "gorsel_promptleri" tam {{image_count}} adet ve İNGİLİZCE olmalı.
+  - Gerçekçi, jenerik, simgesel haber illüstrasyonu sahneleri tarif et.
+  - Gerçek veya tanınabilir kişi yüzü, ünlü, siyasetçi, logo, marka adı/ambalajı, telifli karakter ve görsel içinde okunaklı metin/yazı/tabela İÇERMEYECEK.
+  - Kişi gerekiyorsa yüzü görünmeyen, anonim siluetler kullan.
+  {{guidance}}
+  Yanıtı YALNIZCA geçerli JSON nesnesi olarak ver.
+
+user_template: |
+  Ham haber:
+  BAŞLIK: {{title}}
+  METİN: {{text}}
+
+  Şu JSON'u üret:
+  {
+    "baslik": "video içi kısa başlık (en fazla 70 karakter)",
+    "senaryo": "yaklaşık {{target_words}} kelimelik Türkçe seslendirme metni",
+    "ozet": "tek cümle özet",
+    "gorsel_promptleri": ["English prompt 1", "English prompt 2", "English prompt 3"],
+    "etiketler": ["3-5 Türkçe etiket"]
+  }
