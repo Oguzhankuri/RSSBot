@@ -188,3 +188,9 @@ def test_cli_colab_turn_and_latest(setup, tmp_path, write_cfg, monkeypatch):
     assert cli_main(["colab-turn", "--config", str(path), "--date", "latest"]) == 0
     # GPU kütüphaneleri yok → görsel adımı hata olarak işaretlenir
     assert cli_main(["gpu", "--config", str(path), "--date", "latest", "--only", "images"]) == 1
+
+
+def test_hint_matches_actor():
+    images = model.STEP_BY_KEY["images"]
+    assert "Colab" in model.hint_for(images, model.COLAB)
+    assert "Colab gerekmez" in model.hint_for(images, model.PC)

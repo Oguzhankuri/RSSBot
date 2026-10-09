@@ -115,9 +115,9 @@ def advance(
             break
         if row["actor"] not in actors or (only_set is not None and row["key"] not in only_set):
             if row["status"] != model.FAILED:
-                _set(repo, row, model.QUEUED, sdef.hint)
+                _set(repo, row, model.QUEUED, model.hint_for(sdef, row['actor']))
             break
-        _set(repo, row, model.RUNNING, sdef.hint)
+        _set(repo, row, model.RUNNING, model.hint_for(sdef, row['actor']))
         logger.info("▶ %s", sdef.label)
         try:
             message = AUTO_TASKS[row["key"]](ctx)

@@ -43,6 +43,12 @@ def actor_for(step: StepDef, cfg: dict[str, Any]) -> str:
     return step.actor
 
 
+def hint_for(step: StepDef, actor: str) -> str:
+    if step.key == "images" and actor == PC:
+        return "Görseller Hugging Face API ile üretiliyor (Colab gerekmez)."
+    return step.hint
+
+
 def should_skip(step: StepDef, cfg: dict[str, Any]) -> bool:
     return step.key == "voices" and not (cfg["voice"].get("enabled", True) and cfg["translate"].get("enabled", True))
 
@@ -83,5 +89,5 @@ def current_turn(steps: list[dict[str, Any]]) -> Turn:
             USER: f"🎙️ Sıra sende: {sdef.label}",
             PC: f"▶️ Sıradaki: {sdef.label}",
         }
-        return Turn(actor, row["key"], row["status"], titles[actor], row.get("message") or sdef.hint)
+        return Turn(actor, row["key"], row["status"], titles[actor], row.get("message") or hint_for(sdef, actor))
     return Turn(None, None, None, "✅ Bugünün işi bitti!", "Tüm adımlar tamamlandı.")
